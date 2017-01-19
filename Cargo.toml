@@ -1,0 +1,11 @@
+[package]
+name = "standardfile"
+version = "0.1.0"
+authors = ["Alexander Dean <dstar@slackless.com>"]
+description = "A Rust StandardFile server implementation."
+readme = "README.md"
+license = "GPL-3.0"
+keywords = ["notes","server","standardfile","self","hosted"]
+
+[dependencies]
+
