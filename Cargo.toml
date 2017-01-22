@@ -9,4 +9,5 @@ keywords = ["notes","server","standardfile","self","hosted"]
 
 [dependencies]
 hyper = "0.10"
+hyper-native-tls = "0.2"
 clap = "2.20"
