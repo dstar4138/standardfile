@@ -8,4 +8,5 @@ license = "GPL-3.0"
 keywords = ["notes","server","standardfile","self","hosted"]
 
 [dependencies]
-
+hyper = "0.10"
+clap = "2.20"

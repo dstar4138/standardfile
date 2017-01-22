@@ -1,0 +1,20 @@
+use clap::{App, Arg};
+
+/* Global App Values. */
+pub const APP_NAME: &'static str = "standardfiled";
+pub const LOCALHOST: &'static str = "0.0.0.0";
+
+/* Default Parameters. */
+pub const DEFAULT_PORT: &'static str = "8080";
+
+pub fn build_arg_parser<'a,'b>() -> App<'a,'b> {
+    App::new(APP_NAME)
+        .version(crate_version!())
+        .arg(
+            Arg::with_name("port")
+                .short("p")
+                .long("port")
+                .value_name("PORT")
+                .default_value(DEFAULT_PORT))
+}
+
