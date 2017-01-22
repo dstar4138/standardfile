@@ -8,3 +8,4 @@ extern crate uuid;
 pub mod env;
 pub mod items;
 pub mod service;
+pub mod users;
