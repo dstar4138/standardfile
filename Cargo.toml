@@ -8,7 +8,8 @@ license = "GPL-3.0"
 keywords = ["notes","server","standardfile","self","hosted"]
 
 [dependencies]
-hyper = "0.10"
+router = "0.5"
+iron = "0.5"
 hyper-native-tls = "0.2"
 clap = "2.20"
 uuid = { version = "0.2", features = ["serde", "v4"] }

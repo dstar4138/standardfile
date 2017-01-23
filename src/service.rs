@@ -1,75 +1,26 @@
-//use futures;
-//use hyper::{Error, Get};
-//use hyper::header::ContentLength;
-//use hyper::server::{Service, Request, Response};
-//use hyper::status::StatusCode;
-
-use hyper::{Get,Post};
-use hyper::status::StatusCode;
-use hyper::server::{Request, Response};
-use hyper::uri::RequestUri::AbsolutePath;
+use iron::{Request,Response,IronResult};
+use iron::status;
+use router::Router;
 
 static INDEX: &'static [u8] = b"For API, see https://standardfile.org";
 
-/* POST hyper version 0.10:
-pub struct StandardFileService;
-impl Service for StandardFileService {
+pub fn handler() -> Router {
+    return router!(
+        // AUTH -------------------------------------
+        index:      any   "/"             => index /*,
+        auth:       post  "/auth"         => auth,
+        up_auth:    patch "/auth"         => up_auth,
+        sign_in:    post  "/auth/sign_in" => sign_in,
+        params:     get   "/auth/params"  => params,
 
-    type Error = Error;
-    type Request = Request;
-    type Respnse = Response;
-    type Future = futures::Finished<Response, Error>; 
-
-    fn call(&self, req: Request) -> Self::Future {
-        futures::finished(
-            match (req.method(), req.path()) {
-                (&Get, "/") => {
-                    Response::new()
-                        .with_header(ContentLength(INDEX.len() as u64))
-                        .with_body(INDEX)
-                },
-
-                // TODO: flesh out API.
-
-                _ => Response::new().with_status(StatusCode::NotFound)
-            })
-    }
+        // ITEMS ------------------------------------
+        sync:       post   "/items/sync"  => sync  */
+    )
 }
-*/
 
-macro_rules! try_return(
-    ($e:expr) => {{
-        match $e {
-            Ok(v) => v,
-            Err(e) => { println!("Error: {}", e); return; }
-        }
-    }}
-);
-pub fn handle(req: Request, mut res: Response) {
-    match req.uri {
-        AbsolutePath(ref path) => match (&req.method, &path[..]) {
-            (&Get, "/") => {
-                try_return!(res.send(INDEX));
-                return;
-            },
-            
-            // AUTH
-            (&Post, "/auth") => {}
-            // (&Patch, "/auth") => {}
-            (&Post, "/auth/sign_in") => {}
-            (&Get, "/auth/params") => {}
-
-            // ITEMS
-            (&Post, "/items/sync") => {}
-
-            _ => {
-                *res.status_mut() = StatusCode::NotFound;
-                return;
-            }
-        },
-        _ => {
-            return;
-        }
-    }
+fn index(_: &mut Request) -> IronResult<Response> {
+    Ok(
+        Response::with((status::Ok, INDEX))
+    )
 }
 
