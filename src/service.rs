@@ -4,7 +4,7 @@
 //use hyper::server::{Service, Request, Response};
 //use hyper::status::StatusCode;
 
-use hyper::Get;
+use hyper::{Get,Post};
 use hyper::status::StatusCode;
 use hyper::server::{Request, Response};
 use hyper::uri::RequestUri::AbsolutePath;
@@ -53,7 +53,14 @@ pub fn handle(req: Request, mut res: Response) {
                 return;
             },
             
-            //TODO: flesh out API.
+            // AUTH
+            (&Post, "/auth") => {}
+            // (&Patch, "/auth") => {}
+            (&Post, "/auth/sign_in") => {}
+            (&Get, "/auth/params") => {}
+
+            // ITEMS
+            (&Post, "/items/sync") => {}
 
             _ => {
                 *res.status_mut() = StatusCode::NotFound;
