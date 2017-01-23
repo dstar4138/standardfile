@@ -3,7 +3,6 @@ extern crate hyper_native_tls;
 extern crate standardfile;
 
 use iron::prelude::*;
-use iron::status;
 use standardfile::env;
 use standardfile::service;
 use hyper_native_tls::NativeTlsServer;
