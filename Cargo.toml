@@ -14,3 +14,4 @@ hyper-native-tls = "0.2"
 clap = "2.20"
 uuid = { version = "0.2", features = ["serde", "v4"] }
 chrono = { version = "0.2", features = ["serde", "rustc-serialize"] }
+rusqlite = { version = "0.9", features = ["chrono"] }

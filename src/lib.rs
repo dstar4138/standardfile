@@ -7,7 +7,9 @@ extern crate router;
 extern crate chrono;
 extern crate iron;
 extern crate uuid;
+extern crate rusqlite;
 
+pub mod db;
 pub mod env;
 pub mod items;
 pub mod service;
