@@ -3,17 +3,17 @@ use chrono::{DateTime, UTC};
 
 #[derive(Debug,PartialEq,Eq)]
 pub struct SFUser {
-    uuid: Uuid,
+    pub uuid: Uuid,
 
-    encrypted_password: String,
-    pw_func: String,
-    pw_alg: String,
-    pw_cost: i32,
-    pw_key_size: i32,
-    pw_nonce: String,
-    email: String,
-    created_at: DateTime<UTC>,
-    updated_at: DateTime<UTC>,
+    pub encrypted_password: String,
+    pub pw_func: String,
+    pub pw_alg: String,
+    pub pw_cost: i32,
+    pub pw_key_size: i32,
+    pub pw_nonce: String,
+    pub email: String,
+    pub created_at: DateTime<UTC>,
+    pub updated_at: DateTime<UTC>,
 }
 
 pub fn create_new(email: String,
