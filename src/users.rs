@@ -1,5 +1,7 @@
 use uuid::Uuid;
 use chrono::{DateTime, UTC};
+use crypto::digest::Digest;
+use crypto::sha1::Sha1;
 
 #[derive(Debug,PartialEq,Eq)]
 pub struct SFUser {
@@ -73,4 +75,20 @@ pub fn get_pw_details(user: &SFUser) -> PWDetails {
         pw_key_size: user.pwd.pw_key_size.clone(),
         pw_nonce: user.pwd.pw_nonce.clone(),
     }
+}
+pub fn new_pw_details(email: &String, salt: &String) -> PWDetails {
+    PWDetails {
+        pw_alg: "sha512".to_string(),
+        pw_cost: 5000,
+        pw_func: "pbkdf2".to_string(),
+        pw_key_size: 512,
+        pw_nonce: digest(vec![email, &"SN".to_string(), salt])
+    }
+}
+fn digest(msgs: Vec<&String>) -> String {
+    let mut hasher = Sha1::new();
+    for s in msgs.iter() {
+        hasher.input_str(s.as_str());
+    }
+    hasher.result_str()
 }

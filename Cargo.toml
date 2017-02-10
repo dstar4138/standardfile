@@ -15,3 +15,10 @@ clap = "2.20"
 uuid = { version = "0.2", features = ["serde", "v4"] }
 chrono = { version = "0.2", features = ["serde", "rustc-serialize"] }
 rusqlite = { version = "0.9", features = ["chrono"] }
+jsonwebtoken = "1"
+rustc-serialize = "0.3"
+serde = "0.9"
+serde_derive = "0.9"
+serde_json = "0.9"
+urlencoded = "0.5"
+rust-crypto = "0.2"

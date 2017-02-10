@@ -110,7 +110,7 @@ pub fn update_item(conn: &Connection, item: items::SFItem) -> () {
          ]).unwrap();
 }
 
-pub fn find_user_by_email(conn: &Connection, email: String) -> Option<users::SFUser> {
+pub fn find_user_by_email(conn: &Connection, email: &String) -> Option<users::SFUser> {
     let mut stmt = conn.prepare(
         "SELECT 
             uuid,
@@ -124,7 +124,7 @@ pub fn find_user_by_email(conn: &Connection, email: String) -> Option<users::SFU
             created_at,
             updated_at
          FROM users WHERE email = ? LIMIT 1").unwrap();
-    let mut rows = stmt.query(&[ &email ]).unwrap();
+    let mut rows = stmt.query(&[ email ]).unwrap();
     match rows.next() {
         None => None,
         Some(Err(_)) => None,
