@@ -1,186 +1,89 @@
+use env;
 use uuid::Uuid;
-use rusqlite::Connection;
+use diesel;
+use diesel::prelude::*;
+use schema::{users,items};
+use models::{User,UpdateUser,Item};
 
-// Types.
-use items;
-use users;
-
-pub fn create_connection(path: &str) -> Connection {
-    let conn = Connection::open(path).unwrap();
-    verify_tables(&conn);
-    conn
+// TODO: find a way to abstract the types for easy plug-and-play.
+pub fn get_connection() -> SqliteConnection
+{
+//    if cfg!(mysql) {
+//        let (user,password) = env::get_database_creds();
+//        let host = env::get_database_hostport();
+//        let database_name = env::get_database_name();
+//        let connection_url = format!("mysql://{}:{}/{}/{}",
+//                                     user,password,host,database_name);
+//        create_connection(connection_url.as_str())
+//    } else {
+        //create_connection(":memory")
+        let path = env::get_database_path();
+        create_connection(path.as_str())
+//    }
 }
-fn verify_tables(conn: &Connection) {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS users (
-                uuid                VARCHAR(36) NOT NULL PRIMARY KEY,
-                encrypted_password  VARCHAR(255) DEFAULT \"\" NOT NULL, 
-                pw_func             VARCHAR(255),
-                pw_alg              VARCHAR(255),
-                pw_cost             INTEGER,
-                pw_key_size         INTEGER,
-                pw_nonce            VARCHAR(255),
-                email               VARCHAR(255) NOT NULL UNIQUE,
-                created_at          DATETIME NOT NULL,
-                updated_at          DATETIME NOT NULL
-        )", &[]).unwrap();
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS items (
-                uuid                VARCHAR(36) NOT NULL PRIMARY KEY,
-                content             VARCHAR(65535),
-                content_type        VARCHAR(255),
-                enc_item_key        VARCHAR(255),
-                auth_hash           VARCHAR(255),
-                user_uuid           VARCHAR(36) NOT NULL,
-                created_at          DATETIME NOT NULL,
-                updated_at          DATETIME NOT NULL,
-                deleted             BOOLEAN DEFAULT FALSE
-        )", &[]).unwrap();
+fn create_connection(connection_url: &str) -> SqliteConnection {
+//    if cfg!(mysql) {
+//        diesel::MysqlConnection::establish(connection_url)
+//            .expect(&format!("Error connection to {}", connection_url))
+//    } else {
+        diesel::SqliteConnection::establish(connection_url)
+            .expect(&format!("Error connecting to {}", connection_url))
+//    }
 }
 
-pub fn add_user(conn: &Connection, user: users::SFUser) -> () {
-    conn.execute(
-        "INSERT INTO users (
-            uuid,
-            encrypted_password,
-            pw_func,
-            pw_alg,
-            pw_cost,
-            pw_key_size,
-            pw_nonce,
-            email,
-            created_at,
-            updated_at
-         ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
-         &[&user.uuid.urn().to_string(),
-           &user.encrypted_password,
-           &user.pwd.pw_func,
-           &user.pwd.pw_alg,
-           &user.pwd.pw_cost,
-           &user.pwd.pw_key_size,
-           &user.pwd.pw_nonce,
-           &user.email,
-           &user.created_at,
-           &user.updated_at
-          ]).unwrap();
+pub fn add_user(conn: &SqliteConnection, user: User) -> () {
+    diesel::insert_into(users::table)
+        .values(&user)
+        .execute(conn)
+        .expect("Error inserting new user");
 }
 
-pub fn add_item(conn: &Connection, item: items::SFItem) -> () {
-    conn.execute(
-        "INSERT INTO items (
-            uuid,
-            content,
-            content_type,
-            enc_item_key,
-            auth_hash,
-            user_uuid,
-            created_at,
-            updated_at,
-            deleted
-         ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-        &[&item.uuid.urn().to_string(),
-          &item.content,
-          &item.content_type,
-          &item.enc_item_key,
-          &item.auth_hash,
-          &item.user_uuid.urn().to_string(),
-          &item.created_at,
-          &item.updated_at,
-          &item.deleted
-         ]).unwrap();
+pub fn update_user(conn: &SqliteConnection, user: UpdateUser) -> () {
+    use schema::users::dsl::*;
+    diesel::update(users.filter(email.eq(&user.email)))
+        .set((
+                encrypted_password.eq(&user.password)
+            ))
+        .execute(conn)
+        .expect("Error updating existing user");
 }
 
-pub fn update_item(conn: &Connection, item: items::SFItem) -> () {
-    conn.execute(
-        "UPDATE items SET 
-            content = ?2,
-            content_type = ?3,
-            enc_item_key = ?4,
-            auth_hash = ?5,
-            updated_at = ?6,
-            deleted = ?7
-         WHERE uuid = ?1 LIMIT 1",
-         &[&item.uuid.urn().to_string(),
-           &item.content,
-           &item.content_type,
-           &item.enc_item_key,
-           &item.auth_hash,
-           &item.updated_at,
-           &item.deleted
-         ]).unwrap();
+pub fn add_item(conn: &SqliteConnection, item: Item) -> () {
+    diesel::insert_into(items::table)
+        .values(&item)
+        .execute(conn)
+        .expect("Error inserting new item");
 }
 
-pub fn find_user_by_email(conn: &Connection, email: &String) -> Option<users::SFUser> {
-    let mut stmt = conn.prepare(
-        "SELECT 
-            uuid,
-            encrypted_password,
-            pw_func,
-            pw_alg,
-            pw_cost,
-            pw_key_size,
-            pw_nonce,
-            email,
-            created_at,
-            updated_at
-         FROM users WHERE email = ? LIMIT 1").unwrap();
-    let mut rows = stmt.query(&[ email ]).unwrap();
-    match rows.next() {
-        None => None,
-        Some(Err(_)) => None,
-        Some(Ok(row)) => { 
-            let id_str: String = row.get(0);
-            Some(users::SFUser {
-                uuid: Uuid::parse_str(id_str.as_str()).unwrap(),
-                encrypted_password:   row.get(1),
-                pwd: users::PWDetails {
-                    pw_func:          row.get(2),
-                    pw_alg:           row.get(3),
-                    pw_cost:          row.get(4),
-                    pw_key_size:      row.get(5),
-                    pw_nonce:         row.get(6),
-                },
-                email:                row.get(7),
-                created_at:           row.get(8),
-                updated_at:           row.get(9)
-            })
-        }
-    }
+pub fn update_item(conn: &SqliteConnection, item: Item) -> () {
+    use schema::items::dsl::*;
+    diesel::update(items.filter(uuid.eq(&item.uuid)))
+        .set((
+            content.eq(&item.content),
+            content_type.eq(&item.content_type),
+            enc_item_key.eq(&item.enc_item_key),
+            auth_hash.eq(&item.auth_hash),
+            updated_at.eq(&item.updated_at),
+            deleted.eq(&item.deleted),
+            last_user_agent.eq(&item.last_user_agent)
+        ))
+        .execute(conn)
+        .expect("Error updating existing item");
 }
 
-pub fn get_items_by_user_uuid(conn: &Connection, user_uuid: &Uuid) -> Option<Vec<items::SFItem>> {
-    let mut stmt = conn.prepare(
-        "SELECT
-            uuid,
-            user_uuid,
-            content,
-            content_type,
-            enc_item_key,
-            auth_hash,
-            created_at,
-            updated_at,
-            deleted
-         FROM items WHERE user_uuid = ?").unwrap();
-    let mut rows = stmt.query(&[&user_uuid.urn().to_string()]).unwrap();
-    let mut items = Vec::new();
-    while let Some(wrap_row) = rows.next() {
-        let row = wrap_row.unwrap();
+pub fn find_user_by_email(conn: &SqliteConnection, user_email: &String) -> Option<User> {
+    use schema::users::dsl::{users,email};
+    users.filter(email.eq(user_email))
+        .limit(1)
+        .get_result::<User>(conn)
+        .optional()
+        .unwrap()
+}
 
-        let id_str: String = row.get(0);
-        let uid_str: String = row.get(1);
-        items.push(
-            items::SFItem {
-                uuid     : Uuid::parse_str(id_str.as_str()).unwrap(),
-                user_uuid: Uuid::parse_str(uid_str.as_str()).unwrap(),
-                content      : row.get(2),
-                content_type : row.get(3),
-                enc_item_key : row.get(4),
-                auth_hash    : row.get(5),
-                created_at   : row.get(6),
-                updated_at   : row.get(7),
-                deleted      : row.get(8)
-            });
-    }
-
-    Some(items)
+pub fn get_items_by_user_uuid<'a,T>(conn: &SqliteConnection, users_uuid: &Uuid) -> Option<Vec<Item>> {
+    use schema::items::dsl::{items,user_uuid};
+    items.filter(user_uuid.eq(users_uuid.urn().to_string()))
+        .load::<Item>(conn)
+        .optional()
+        .unwrap()
 }
