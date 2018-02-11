@@ -1,2 +1,6 @@
 target/
 *.swp
+*.iml
+.idea/
+*.db
+.env
