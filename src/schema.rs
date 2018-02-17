@@ -2,6 +2,7 @@ table! {
     users (uuid) {
         uuid -> Text,
         email -> Text,
+        pw_func -> Text,
         pw_alg -> Text,
         pw_cost -> Integer,
         pw_key_size -> Integer,

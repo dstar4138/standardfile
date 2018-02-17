@@ -11,8 +11,8 @@ pub fn handler() -> Router {
         index:      any   "/"             => index,
         echo:       get   "/echo/:q"      => echo,
         // AUTH -------------------------------------
-        params:     get   "/auth/params"  => auth::params /*,
-        auth:       post  "/auth"         => auth,
+        params:     get   "/auth/params"  => auth::params,
+        auth:       post  "/auth"         => auth::register /*,
         up_auth:    patch "/auth"         => up_auth,
         sign_in:    post  "/auth/sign_in" => sign_in,
 

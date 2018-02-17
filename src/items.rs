@@ -1,36 +1,22 @@
-use uuid::Uuid;
-use chrono::{DateTime, UTC};
+use util;
+use models::Item;
 
-#[derive(Debug,PartialEq,Eq)]
-pub struct SFItem {
-    pub uuid: Uuid,
-    pub user_uuid: Uuid,
-
-    pub content:      String, // Base64
-    pub content_type: String,
-    pub enc_item_key: String, // Base64
-    pub auth_hash:    String, // Hex
-    pub deleted:      bool,    
-    pub created_at:   DateTime<UTC>,
-    pub updated_at:   DateTime<UTC>  
-}
-
-pub fn create_new( user_uuid   : Uuid,
+pub fn create_new( user_uuid   : String,
                    content     : String, 
                    content_type: String,
                    enc_item_key: String,
-                   auth_hash   : String 
-                 ) -> SFItem {
-
-    let cur_time = UTC::now();
-
-    SFItem {
-        uuid         : Uuid::new_v4(), // ruby-server uses SecureRandom.uuid
-        user_uuid    : user_uuid,
-        content      : content,
-        content_type : content_type,
-        enc_item_key : enc_item_key,
-        auth_hash    : auth_hash,
+                   auth_hash   : String,
+                   last_user_agent : String
+                 ) -> Item {
+    let cur_time = util::current_time();
+    Item {
+        uuid         : util::new_uuid(),
+        user_uuid,
+        content: content.into_bytes(),
+        content_type,
+        enc_item_key,
+        auth_hash,
+        last_user_agent,
         deleted      : false,
         created_at   : cur_time, 
         updated_at   : cur_time
@@ -40,17 +26,19 @@ pub fn create_new( user_uuid   : Uuid,
 /**
  * Non-mutable delete.
  */
-pub fn mark_deleted( item: &SFItem ) -> SFItem {
-    let cur_time = UTC::now();
-    SFItem {
-        uuid         : item.uuid,
-        user_uuid    : item.user_uuid,
-        created_at   : item.created_at,
+pub fn mark_deleted( item: &Item ) -> Item {
+    let cur_time = util::current_time();
+    Item {
+        uuid         : item.uuid.clone(),
+        user_uuid    : item.user_uuid.clone(),
+        created_at   : item.created_at.clone(),
 
-        content      : "".to_string(),
+        content      : "".to_string().into_bytes(),
         content_type : "".to_string(),
         enc_item_key : "".to_string(),
         auth_hash    : "".to_string(),
+        last_user_agent : "".to_string(),
+
         deleted      : true,
         updated_at   : cur_time 
     }
@@ -63,18 +51,20 @@ pub fn update( content     : String,
                content_type: String,
                enc_item_key: String,
                auth_hash   : String,
-               item        : &SFItem ) -> SFItem {
-    let cur_time = UTC::now();
-    SFItem {
-        uuid         : item.uuid,
-        user_uuid    : item.user_uuid,
-        created_at   : item.created_at,
-        deleted      : item.deleted,
+               last_user_agent : String,
+               item        : &Item ) -> Item {
+    let cur_time = util::current_time();
+    Item {
+        uuid         : item.uuid.clone(),
+        user_uuid    : item.user_uuid.clone(),
+        created_at   : item.created_at.clone(),
+        deleted      : item.deleted.clone(),
 
-        content      : content,
-        content_type : content_type,
-        enc_item_key : enc_item_key,
-        auth_hash    : auth_hash, 
+        content: content.into_bytes(),
+        content_type,
+        enc_item_key,
+        auth_hash,
+        last_user_agent,
         updated_at   : cur_time 
     }
 }

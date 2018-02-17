@@ -1,9 +1,8 @@
 use env;
-use uuid::Uuid;
 use diesel;
 use diesel::prelude::*;
 use schema::{users,items};
-use models::{User,UpdateUser,Item};
+use models::{User,Item};
 
 // TODO: find a way to abstract the types for easy plug-and-play.
 pub fn get_connection() -> SqliteConnection
@@ -31,18 +30,19 @@ fn create_connection(connection_url: &str) -> SqliteConnection {
 //    }
 }
 
-pub fn add_user(conn: &SqliteConnection, user: User) -> () {
+pub fn add_user(conn: &SqliteConnection, user: &User) -> () {
     diesel::insert_into(users::table)
-        .values(&user)
+        .values(user)
         .execute(conn)
         .expect("Error inserting new user");
 }
 
-pub fn update_user(conn: &SqliteConnection, user: UpdateUser) -> () {
+pub fn update_user(conn: &SqliteConnection, user: User) -> () {
     use schema::users::dsl::*;
     diesel::update(users.filter(email.eq(&user.email)))
         .set((
-                encrypted_password.eq(&user.password)
+                encrypted_password.eq(&user.encrypted_password),
+                updated_at.eq(&user.updated_at)
             ))
         .execute(conn)
         .expect("Error updating existing user");
@@ -80,9 +80,9 @@ pub fn find_user_by_email(conn: &SqliteConnection, user_email: &String) -> Optio
         .unwrap()
 }
 
-pub fn get_items_by_user_uuid<'a,T>(conn: &SqliteConnection, users_uuid: &Uuid) -> Option<Vec<Item>> {
+pub fn get_items_by_user_uuid<'a,T>(conn: &SqliteConnection, users_uuid: &String) -> Option<Vec<Item>> {
     use schema::items::dsl::{items,user_uuid};
-    items.filter(user_uuid.eq(users_uuid.urn().to_string()))
+    items.filter(user_uuid.eq(users_uuid))
         .load::<Item>(conn)
         .optional()
         .unwrap()

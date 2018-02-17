@@ -6,6 +6,7 @@ use chrono::prelude::*;
 pub struct User {
     pub uuid: String,
     pub email: String,
+    pub pw_func: String,
     pub pw_alg: String,
     pub pw_cost: i32,
     pub pw_key_size: i32,
@@ -32,6 +33,7 @@ pub struct Item {
     pub last_user_agent: String,
 }
 
+
 ///
 /// Models for exporting data out of the server.
 ///
@@ -42,26 +44,4 @@ pub struct MinimalItem {
     pub content: Vec<u8>,
     pub content_type: String,
     pub created_at: NaiveDateTime,
-}
-
-#[derive(Serialize,Deserialize,Debug,PartialEq,Eq)]
-pub struct PasswordDetails {
-    pub pw_cost: i32,
-    pub pw_salt: String,
-}
-
-#[derive(Serialize,Deserialize,Debug,PartialEq,Eq)]
-pub struct NewUser {
-    pub email: String,
-    pub password: String,
-    pub pw_cost: i32,
-    pub pw_salt: String,
-}
-
-#[derive(Serialize,Deserialize,Debug,PartialEq,Eq)]
-pub struct UpdateUser {
-    pub email: String,
-    pub password: String,
-    pub password_confirmation: String,
-    pub current_password: String,
 }

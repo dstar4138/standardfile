@@ -1,13 +1,14 @@
 CREATE TABLE IF NOT EXISTS "items" (
     "uuid" VARCHAR(36) PRIMARY KEY NULL,
     "content" BLOB NOT NULL,
-    "content_type" VARCHAR(255) NOT NULL,
-    "enc_item_key" VARCHAR(255) NOT NULL,
-    "auth_hash" VARCHAR(255) NOT NULL,
+    "content_type" VARCHAR(512) NOT NULL,
+    "enc_item_key" VARCHAR(65535) NOT NULL,
+    "auth_hash" VARCHAR(512) NOT NULL,
     "user_uuid" VARCHAR(36) NOT NULL,
     "deleted" INTEGER(1) NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "last_user_agent" VARCHAR(65535)
 );
 CREATE TABLE IF NOT EXISTS "users" (
     "uuid" VARCHAR(36) PRIMARY KEY NOT NULL,
