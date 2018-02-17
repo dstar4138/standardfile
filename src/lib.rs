@@ -21,6 +21,7 @@ extern crate iron;
 extern crate uuid;
 extern crate rustc_serialize;
 extern crate urlencoded;
+extern crate bodyparser;
 extern crate jsonwebtoken as jwt;
 
 pub mod db;

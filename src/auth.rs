@@ -1,5 +1,6 @@
 use iron::prelude::*;
 use iron::status;
+use bodyparser;
 use std::io::Read;
 use urlencoded::UrlEncodedQuery;
 use bcrypt::{DEFAULT_COST,hash,verify};
@@ -29,6 +30,10 @@ struct ErrorMsg {
 struct Msg {
     message: String,
     status: u16
+}
+#[derive(Serialize, Deserialize)]
+struct JwtMsg {
+    jwt: String
 }
 
 /**
@@ -93,8 +98,12 @@ pub fn register(req: &mut Request) -> IronResult<Response> {
                     // Do the registration
                     match build_register_user_from_reqmap(hashmap) {
                         Err(msg) => throw_unauthorized(msg),
-                        Ok(newuser) =>
-                            (status::Ok, tokens::user_to_jwt(&newuser).unwrap()),
+                        Ok(newuser) => {
+                            let user_jwt = JwtMsg {
+                                jwt: tokens::user_to_jwt(&newuser).unwrap(),
+                            };
+                            (status::Ok, serde_json::to_string(&user_jwt).unwrap())
+                        },
                     }
                 }
             }
@@ -103,11 +112,11 @@ pub fn register(req: &mut Request) -> IronResult<Response> {
     Ok(Response::with(res))
 }
 fn load_json_req_body(req: &mut Request) -> Result<Value,()> {
-    let mut buf = [0; READ_BUFFER_SIZE];
-    let _ = req.body.read(&mut buf);
-    match serde_json::from_slice(&buf) {
-        Ok(res) => Ok(res),
-        Err(_) => Err(())
+    let json_body = req.get::<bodyparser::Json>();
+    match json_body {
+        Ok(Some(json_body)) => Ok(json_body),
+        Ok(None) => Err(()),
+        Err(err) => Err(())
     }
 }
 fn throw_unauthorized(msg: String) -> (status::Status, String) {

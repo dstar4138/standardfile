@@ -103,6 +103,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bodyparser"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "iron 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "persistent 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "plugin 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "byteorder"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -482,6 +494,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "persistent"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "iron 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "plugin 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "pkg-config"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -691,6 +712,7 @@ name = "standardfile"
 version = "0.1.0"
 dependencies = [
  "bcrypt 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bodyparser 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.29.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "diesel 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -924,6 +946,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum bigdecimal 0.0.10 (registry+https://github.com/rust-lang/crates.io-index)" = "bbe25700d5bafc2f57ee77fb22281e88f231a38431c3abceba0fc716d6f5c5d8"
 "checksum bitflags 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b3c30d3802dfb7281680d6285f2ccdaa8c2d8fee41f93805dba5c4cf50dc23cf"
 "checksum bodyparser 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6928e817538b74a73d1dd6e9a942a2a35c632a597b6bb14fd009480f859a6bf5"
+"checksum bodyparser 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f023abfa58aad6f6bc4ae0630799e24d5ee0ab8bb2e49f651d9b1f9aa4f52f30"
 "checksum byteorder 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "652805b7e73fada9d85e9a6682a4abd490cb52d96aeecc12e33a0de34dfd0d23"
 "checksum cc 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "deaf9ec656256bb25b404c51ef50097207b9cbb29c933d31f92cae5a8a0ffee0"
 "checksum cfg-if 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "d4c819a1287eb618df47cc647173c5c4c66ba19d888a6e50d605672aed3140de"
@@ -971,6 +994,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum num_cpus 1.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c51a3322e4bca9d212ad9a158a02abc6934d005490c054a2778df73a70aa0a30"
 "checksum percent-encoding 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "31010dd2e1ac33d5b46a5b413495239882813e0369f8ed8a5e266f173602f831"
 "checksum persistent 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d4c9c94f2ef72dc272c6bcc8157ccf2bc7da14f4c58c69059ac2fc48492d6916"
+"checksum persistent 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8e8fa0009c4f3d350281309909c618abddf10bb7e3145f28410782f6a5ec74c5"
 "checksum pkg-config 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "3a8b4c6b8165cd1a1cd4b9b120978131389f64bdaf456435caa41e630edba903"
 "checksum plugin 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "1a6a0dc3910bc8db877ffed8e457763b317cf880df4ae19109b9f77d277cf6e0"
 "checksum quote 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6e920b65c65f10b2ae65c831a81a073a89edd28c7cce89475bff467ab4167a"
