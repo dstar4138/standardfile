@@ -32,3 +32,16 @@ struct JwtMsg {
     user: MinimalUser,
     token: String,
 }
+
+use iron::status;
+use serde_json;
+
+fn encode_error_msg(status: status::Status, error: &str) -> (status::Status, String) {
+    (status, serde_json::to_string(
+         &ErrorMsg {
+             error: Msg {
+                 message: error.to_string(),
+                 status: status.to_u16()
+             }
+         }).unwrap())
+}

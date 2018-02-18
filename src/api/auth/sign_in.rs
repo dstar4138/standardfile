@@ -9,18 +9,18 @@ use serde_json::value::Value;
 use db;
 use tokens;
 use models::{User};
-use super::{INVALID_EMAIL_OR_PW,JwtMsg,MinimalUser,ErrorMsg,Msg};
+use super::{INVALID_EMAIL_OR_PW,JwtMsg,MinimalUser,encode_error_msg};
 
 pub fn sign_in(req: &mut Request) -> IronResult<Response> {
     let res = match load_json_req_body(req) {
-        Err(_) => throw_unauthorized(INVALID_EMAIL_OR_PW.to_string()),
+        Err(_) => encode_error_msg(status::Unauthorized, INVALID_EMAIL_OR_PW),
         Ok(ref hashmap) => {
             match reqmap_to_existing_user(hashmap) {
-                None => throw_unauthorized(INVALID_EMAIL_OR_PW.to_string()),
+                None => encode_error_msg(status::Unauthorized, INVALID_EMAIL_OR_PW),
                 Some(user) => {
                     // Do the registration
                     match verify_password_from_params(hashmap, &user) {
-                        false => throw_unauthorized(INVALID_EMAIL_OR_PW.to_string()),
+                        false => encode_error_msg(status::Unauthorized, INVALID_EMAIL_OR_PW),
                         true => {
                             let user_jwt = JwtMsg {
                                 user: MinimalUser {
@@ -41,17 +41,6 @@ pub fn sign_in(req: &mut Request) -> IronResult<Response> {
 fn verify_password_from_params(hashmap: &Value, user: &User) -> bool {
     let password = hashmap.get(&"password".to_string()).unwrap();
     verify(&password.as_str().unwrap(), &user.encrypted_password.as_str()).unwrap()
-}
-fn throw_unauthorized(msg: String) -> (status::Status, String) {
-    (status::Unauthorized, // Throw a 401 on failures.
-     serde_json::to_string(
-         &ErrorMsg {
-             error: Msg {
-                 message: msg,
-                 status: status::Unauthorized.to_u16()
-             }
-         }).unwrap()
-    )
 }
 fn reqmap_to_existing_user(hashmap: &Value) -> Option<User> {
    match as_valid_email(hashmap.get(&"email".to_string()).unwrap()) {

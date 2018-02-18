@@ -11,21 +11,21 @@ use users;
 use tokens;
 use pwdetails;
 use models::{User};
-use super::{UNABLE_TO_REGISTER,ALREADY_REGISTERED,JwtMsg,MinimalUser,Msg,ErrorMsg};
+use super::{UNABLE_TO_REGISTER,ALREADY_REGISTERED,JwtMsg,MinimalUser,encode_error_msg};
 
 /**
  * Register a user and return a JWT.
  **/
 pub fn register(req: &mut Request) -> IronResult<Response> {
     let res = match load_json_req_body(req) {
-        Err(_) => throw_unauthorized(UNABLE_TO_REGISTER.to_string()),
+        Err(_) => encode_error_msg(status::Unauthorized, UNABLE_TO_REGISTER),
         Ok(ref hashmap) => {
             match reqmap_to_existing_user(hashmap) {
-                Some(_) => throw_unauthorized(ALREADY_REGISTERED.to_string()),
+                Some(_) => encode_error_msg(status::Unauthorized, ALREADY_REGISTERED),
                 None => {
                     // Do the registration
                     match build_register_user_from_reqmap(hashmap) {
-                        Err(msg) => throw_unauthorized(msg),
+                        Err(msg) => encode_error_msg(status::Unauthorized, msg.as_str()),
                         Ok(newuser) => {
                             let user_jwt = JwtMsg {
                                 user: MinimalUser {
@@ -50,17 +50,6 @@ fn load_json_req_body(req: &mut Request) -> Result<Value,()> {
         Ok(None) => Err(()),
         Err(_) => Err(())
     }
-}
-fn throw_unauthorized(msg: String) -> (status::Status, String) {
-    (status::Unauthorized, // Throw a 401 on failures.
-     serde_json::to_string(
-         &ErrorMsg {
-             error: Msg {
-                 message: msg,
-                 status: status::Unauthorized.to_u16()
-             }
-         }).unwrap()
-    )
 }
 fn reqmap_to_existing_user(hashmap: &Value) -> Option<User> {
    match as_valid_email(hashmap.get(&"email".to_string()).unwrap()) {

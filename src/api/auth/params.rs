@@ -6,7 +6,7 @@ use serde_json;
 use db;
 use pwdetails;
 
-use super::{ERROR_MISSINGEMAIL,ErrorMsg,Msg};
+use super::{ERROR_MISSINGEMAIL,encode_error_msg};
 
 /**
  * Return the parameters used for password generation.
@@ -14,12 +14,12 @@ use super::{ERROR_MISSINGEMAIL,ErrorMsg,Msg};
  **/
 pub fn params(req: &mut Request) -> IronResult<Response> {
     let res = match req.get_ref::<UrlEncodedQuery>() {
-        Err(_) => throw_badrequest(ERROR_MISSINGEMAIL.to_string()),
+        Err(_) => encode_error_msg(status::BadRequest,ERROR_MISSINGEMAIL),
         Ok(ref hashmap) => {
             let params = hashmap.get(&"email".to_string()).unwrap();
             let val = params.first().unwrap();
             match to_valid_email(val) {
-                None => throw_badrequest(ERROR_MISSINGEMAIL.to_string()),
+                None => encode_error_msg(status::BadRequest,ERROR_MISSINGEMAIL),
                 Some(email) => {
                     let pwmap = get_user_pw_details_or_default(&email);
                     (status::Ok, serde_json::to_string(&pwmap).unwrap())
@@ -44,15 +44,4 @@ fn get_user_pw_details_or_default(email: &String) -> pwdetails::PasswordDetails 
         Some(user) =>
             pwdetails::get_pw_details(&user)
     }
-}
-fn throw_badrequest(msg: String) -> (status::Status, String) {
-    (status::BadRequest,
-     serde_json::to_string(
-         &ErrorMsg {
-             error: Msg {
-                 message: msg,
-                 status: status::Unauthorized.to_u16()
-             }
-         }).unwrap()
-    )
 }
