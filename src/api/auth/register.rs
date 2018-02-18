@@ -1,17 +1,19 @@
 use iron::prelude::*;
 use iron::status;
-use bodyparser;
 use bcrypt::{DEFAULT_COST,hash};
-
-use serde_json;
-use serde_json::value::Value;
+use serde_json::Value;
 
 use db;
 use users;
-use tokens;
 use pwdetails;
 use models::{User};
-use super::{UNABLE_TO_REGISTER,ALREADY_REGISTERED,JwtMsg,MinimalUser,encode_error_msg};
+use super::{
+    UNABLE_TO_REGISTER,ALREADY_REGISTERED,
+    encode_user_jwt,encode_error_msg,
+    as_valid_email,
+    reqmap_to_existing_user,
+    load_json_req_body
+};
 
 /**
  * Register a user and return a JWT.
@@ -26,39 +28,13 @@ pub fn register(req: &mut Request) -> IronResult<Response> {
                     // Do the registration
                     match build_register_user_from_reqmap(hashmap) {
                         Err(msg) => encode_error_msg(status::Unauthorized, msg.as_str()),
-                        Ok(newuser) => {
-                            let user_jwt = JwtMsg {
-                                user: MinimalUser {
-                                    uuid: newuser.uuid.clone(),
-                                    email: newuser.email.clone(),
-                                },
-                                token: tokens::user_to_jwt(&newuser).unwrap(),
-                            };
-                            (status::Ok, serde_json::to_string(&user_jwt).unwrap())
-                        },
+                        Ok(newuser) => encode_user_jwt(&newuser),
                     }
                 }
             }
         }
     };
     Ok(Response::with(res))
-}
-fn load_json_req_body(req: &mut Request) -> Result<Value,()> {
-    let json_body = req.get::<bodyparser::Json>();
-    match json_body {
-        Ok(Some(json_body)) => Ok(json_body),
-        Ok(None) => Err(()),
-        Err(_) => Err(())
-    }
-}
-fn reqmap_to_existing_user(hashmap: &Value) -> Option<User> {
-   match as_valid_email(hashmap.get(&"email".to_string()).unwrap()) {
-       None => None,
-       Some(email) => {
-           let conn = db::get_connection();
-           db::find_user_by_email(&conn, &email)
-       }
-   }
 }
 fn build_register_user_from_reqmap(hashmap: &Value) -> Result<User, String> {
     // The following are REQUIRED params per the spec.
@@ -95,20 +71,5 @@ fn lift_pw_params(hashmap: &Value, default_pwd: pwdetails::PasswordDetails) -> p
         pw_nonce:   hashmap.get("pw_nonce")   .unwrap_or(&json!(default_pwd.pw_nonce)).as_str().unwrap().to_string(),
         pw_salt:    hashmap.get("pw_salt")    .unwrap_or(&json!(default_pwd.pw_salt)).as_str().unwrap().to_string(),
         version:    hashmap.get("version")    .unwrap_or(&json!(default_pwd.version)).as_str().unwrap().to_string(),
-    }
-}
-fn as_valid_email(potential_email: &Value) -> Option<String> {
-    if potential_email.is_string() {
-        let val = potential_email.as_str().unwrap().to_string();
-        to_valid_email(&val)
-    } else {
-        None
-    }
-}
-fn to_valid_email(potential_email: &String) -> Option<String> {
-    if potential_email.contains("@") {
-        Some(potential_email.clone())
-    } else {
-        None
     }
 }

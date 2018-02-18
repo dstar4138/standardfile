@@ -6,7 +6,7 @@ use serde_json;
 use db;
 use pwdetails;
 
-use super::{ERROR_MISSINGEMAIL,encode_error_msg};
+use super::{ERROR_MISSINGEMAIL,encode_error_msg,to_valid_email};
 
 /**
  * Return the parameters used for password generation.
@@ -28,13 +28,6 @@ pub fn params(req: &mut Request) -> IronResult<Response> {
         }
     };
     Ok(Response::with(res))
-}
-fn to_valid_email(potential_email: &String) -> Option<String> {
-    if potential_email.contains("@") {
-        Some(potential_email.clone())
-    } else {
-        None
-    }
 }
 fn get_user_pw_details_or_default(email: &String) -> pwdetails::PasswordDetails {
     let conn = db::get_connection();
