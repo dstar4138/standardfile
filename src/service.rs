@@ -2,7 +2,7 @@ use iron::prelude::*;
 use iron::status;
 use router::Router;
 
-use auth;
+use api;
 
 static INDEX: &'static [u8] = b"For API, see https://standardfile.org";
 
@@ -11,9 +11,9 @@ pub fn handler() -> Router {
         index:      any   "/"             => index,
         echo:       get   "/echo/:q"      => echo,
         // AUTH -------------------------------------
-        params:     get   "/auth/params"  => auth::params,
-        auth:       post  "/auth"         => auth::register,
-        sign_in:    post  "/auth/sign_in" => auth::sign_in, /*
+        params:     get   "/auth/params"  => api::auth::params,
+        auth:       post  "/auth"         => api::auth::register,
+        sign_in:    post  "/auth/sign_in" => api::auth::sign_in, /*
         up_auth:    patch "/auth"         => up_auth,
 
         // ITEMS ------------------------------------

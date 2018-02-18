@@ -32,6 +32,6 @@ pub mod schema;
 pub mod service;
 pub mod users;
 pub mod pwdetails;
-pub mod auth;
 pub mod tokens;
 pub mod util;
+pub mod api;
