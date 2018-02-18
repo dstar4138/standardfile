@@ -13,11 +13,11 @@ pub fn handler() -> Router {
         // AUTH -------------------------------------
         params:     get   "/auth/params"  => api::auth::params,
         auth:       post  "/auth"         => api::auth::register,
-        sign_in:    post  "/auth/sign_in" => api::auth::sign_in, /*
-        up_auth:    patch "/auth"         => up_auth,
+        sign_in:    post  "/auth/sign_in" => api::auth::sign_in,
+/*        up_auth:    patch "/auth"         => up_auth, */
 
         // ITEMS ------------------------------------
-        sync:       post   "/items/sync"  => sync  */
+        sync:       post   "/items/sync"  => api::items::sync
     )
 }
 
