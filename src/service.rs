@@ -12,9 +12,9 @@ pub fn handler() -> Router {
         echo:       get   "/echo/:q"      => echo,
         // AUTH -------------------------------------
         params:     get   "/auth/params"  => auth::params,
-        auth:       post  "/auth"         => auth::register /*,
+        auth:       post  "/auth"         => auth::register,
+        sign_in:    post  "/auth/sign_in" => auth::sign_in, /*
         up_auth:    patch "/auth"         => up_auth,
-        sign_in:    post  "/auth/sign_in" => sign_in,
 
         // ITEMS ------------------------------------
         sync:       post   "/items/sync"  => sync  */

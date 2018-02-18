@@ -14,11 +14,11 @@ This will be a mess. Please save me.
   - [X] SQLite
   - [ ] MySQL _(TODO to allow drop-in replacement)_
 - API v0.0.2
-  - [ ] POST /auth
-  - [ ] PATCH /auth
-  - [ ] POST /auth/sign_in
+  - [X] POST /auth
+  - [X] POST /auth/sign_in
   - [X] GET /auth/params
   - [ ] POST /items/sync
+  - [ ] PATCH /auth
 
 ### Usage:
 

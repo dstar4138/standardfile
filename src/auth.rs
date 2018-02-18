@@ -1,7 +1,6 @@
 use iron::prelude::*;
 use iron::status;
 use bodyparser;
-use std::io::Read;
 use urlencoded::UrlEncodedQuery;
 use bcrypt::{DEFAULT_COST,hash,verify};
 
@@ -17,10 +16,7 @@ use models::{User};
 static ERROR_MISSINGEMAIL: &'static str = "Please provide email via GET paramater.";
 static UNABLE_TO_REGISTER: &'static str = "Unable to register.";
 static ALREADY_REGISTERED: &'static str = "This email is already registered.";
-
-// Limit our read buffer size to try and avoid memory consumption issues.
-// All "expected" values are known length limits (besides email address).
-const READ_BUFFER_SIZE: usize = 1024;
+static INVALID_EMAIL_OR_PW: &'static str = "Invalid email or password.";
 
 #[derive(Serialize, Deserialize)]
 struct ErrorMsg {
@@ -31,9 +27,16 @@ struct Msg {
     message: String,
     status: u16
 }
+
+#[derive(Serialize, Deserialize)]
+struct MinimalUser{
+    uuid: String,
+    email: String,
+}
 #[derive(Serialize, Deserialize)]
 struct JwtMsg {
-    jwt: String
+    user: MinimalUser,
+    token: String,
 }
 
 /**
@@ -100,7 +103,11 @@ pub fn register(req: &mut Request) -> IronResult<Response> {
                         Err(msg) => throw_unauthorized(msg),
                         Ok(newuser) => {
                             let user_jwt = JwtMsg {
-                                jwt: tokens::user_to_jwt(&newuser).unwrap(),
+                                user: MinimalUser {
+                                    uuid: newuser.uuid.clone(),
+                                    email: newuser.email.clone(),
+                                },
+                                token: tokens::user_to_jwt(&newuser).unwrap(),
                             };
                             (status::Ok, serde_json::to_string(&user_jwt).unwrap())
                         },
@@ -116,7 +123,7 @@ fn load_json_req_body(req: &mut Request) -> Result<Value,()> {
     match json_body {
         Ok(Some(json_body)) => Ok(json_body),
         Ok(None) => Err(()),
-        Err(err) => Err(())
+        Err(_) => Err(())
     }
 }
 fn throw_unauthorized(msg: String) -> (status::Status, String) {
@@ -175,4 +182,36 @@ fn lift_pw_params(hashmap: &Value, default_pwd: pwdetails::PasswordDetails) -> p
         pw_salt:    hashmap.get("pw_salt")    .unwrap_or(&json!(default_pwd.pw_salt)).as_str().unwrap().to_string(),
         version:    hashmap.get("version")    .unwrap_or(&json!(default_pwd.version)).as_str().unwrap().to_string(),
     }
+}
+
+pub fn sign_in(req: &mut Request) -> IronResult<Response> {
+    let res = match load_json_req_body(req) {
+        Err(_) => throw_unauthorized(INVALID_EMAIL_OR_PW.to_string()),
+        Ok(ref hashmap) => {
+            match reqmap_to_existing_user(hashmap) {
+                None => throw_unauthorized(INVALID_EMAIL_OR_PW.to_string()),
+                Some(user) => {
+                    // Do the registration
+                    match verify_password_from_params(hashmap, &user) {
+                        false => throw_unauthorized(INVALID_EMAIL_OR_PW.to_string()),
+                        true => {
+                            let user_jwt = JwtMsg {
+                                user: MinimalUser {
+                                    uuid: user.uuid.clone(),
+                                    email: user.email.clone(),
+                                },
+                                token: tokens::user_to_jwt(&user).unwrap(),
+                            };
+                            (status::Ok, serde_json::to_string(&user_jwt).unwrap())
+                        },
+                    }
+                }
+            }
+        }
+    };
+    Ok(Response::with(res))
+}
+fn verify_password_from_params(hashmap: &Value, user: &User) -> bool {
+    let password = hashmap.get(&"password".to_string()).unwrap();
+    verify(&password.as_str().unwrap(), &user.encrypted_password.as_str()).unwrap()
 }

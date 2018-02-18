@@ -38,7 +38,7 @@ pub fn setup_env_arg_parser<'a,'b>() -> App<'a,'b> {
 fn get_or_panic(key: &str, error: &str) -> String {
     match env::var(key) {
         Ok(val) => val.clone(),
-        _       => panic!(format!("No {} given. {}",key,error))
+        _       => panic!("No {} given. {}",key,error)
     }
 }
 
