@@ -23,8 +23,8 @@ pub fn user_to_jwt(user: &User) -> Result<String,Error> {
            env::get_secret_key().as_bytes())
 }
 
-pub fn decode_jwt(token: String) -> Result<Claims,Error> {
-    match decode::<Claims>(&token,
+pub fn decode_jwt(token: &String) -> Result<Claims,Error> {
+    match decode::<Claims>(token,
                            env::get_secret_key().as_bytes(),
                            &Validation::new(Algorithm::HS256)) {
         Ok(data) => Ok(data.claims),
@@ -32,7 +32,7 @@ pub fn decode_jwt(token: String) -> Result<Claims,Error> {
     }
 }
 
-fn sha256(input: &str) -> String {
+pub fn sha256(input: &str) -> String {
     let mut hash = Sha256::new();
     hash.input_str(input);
     hash.result_str()

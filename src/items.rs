@@ -6,7 +6,7 @@ pub fn create_new( user_uuid   : String,
                    content_type: String,
                    enc_item_key: String,
                    auth_hash   : String,
-                   last_user_agent : String
+                   last_user_agent : Option<String>
                  ) -> Item {
     let cur_time = util::current_time();
     Item {
@@ -37,7 +37,7 @@ pub fn mark_deleted( item: &Item ) -> Item {
         content_type : "".to_string(),
         enc_item_key : "".to_string(),
         auth_hash    : "".to_string(),
-        last_user_agent : "".to_string(),
+        last_user_agent : None,
 
         deleted      : true,
         updated_at   : cur_time 
@@ -51,7 +51,7 @@ pub fn update( content     : String,
                content_type: String,
                enc_item_key: String,
                auth_hash   : String,
-               last_user_agent : String,
+               last_user_agent : Option<String>,
                item        : &Item ) -> Item {
     let cur_time = util::current_time();
     Item {

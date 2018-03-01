@@ -7,12 +7,15 @@ use db;
 use users;
 use pwdetails;
 use models::{User};
-use super::{
+use api::{
     UNABLE_TO_REGISTER,ALREADY_REGISTERED,
-    encode_user_jwt,encode_error_msg,
+    encode_error_msg,
+    load_json_req_body
+};
+use super::{
+    encode_user_jwt,
     as_valid_email,
     reqmap_to_existing_user,
-    load_json_req_body
 };
 
 /**

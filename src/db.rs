@@ -3,6 +3,7 @@ use diesel;
 use diesel::prelude::*;
 use schema::{users,items};
 use models::{User,Item};
+use chrono::NaiveDateTime;
 
 // TODO: find a way to abstract the types for easy plug-and-play.
 pub fn get_connection() -> SqliteConnection
@@ -48,27 +49,13 @@ pub fn update_user(conn: &SqliteConnection, user: User) -> () {
         .expect("Error updating existing user");
 }
 
-pub fn add_item(conn: &SqliteConnection, item: Item) -> () {
-    diesel::insert_into(items::table)
+pub fn add_or_update_item(conn: &SqliteConnection, item: Item) -> Result<Item,Item> {
+    match diesel::replace_into(items::table)
         .values(&item)
-        .execute(conn)
-        .expect("Error inserting new item");
-}
-
-pub fn update_item(conn: &SqliteConnection, item: Item) -> () {
-    use schema::items::dsl::*;
-    diesel::update(items.filter(uuid.eq(&item.uuid)))
-        .set((
-            content.eq(&item.content),
-            content_type.eq(&item.content_type),
-            enc_item_key.eq(&item.enc_item_key),
-            auth_hash.eq(&item.auth_hash),
-            updated_at.eq(&item.updated_at),
-            deleted.eq(&item.deleted),
-            last_user_agent.eq(&item.last_user_agent)
-        ))
-        .execute(conn)
-        .expect("Error updating existing item");
+        .execute(conn) {
+        Err(_) => Err(item),
+        Ok(_)  => Ok(item)
+    }
 }
 
 pub fn find_user_by_email(conn: &SqliteConnection, user_email: &String) -> Option<User> {
@@ -80,9 +67,38 @@ pub fn find_user_by_email(conn: &SqliteConnection, user_email: &String) -> Optio
         .unwrap()
 }
 
-pub fn get_items_by_user_uuid<'a,T>(conn: &SqliteConnection, users_uuid: &String) -> Option<Vec<Item>> {
-    use schema::items::dsl::{items,user_uuid};
+pub fn find_user_pw_hash_by_uuid(conn: &SqliteConnection, user_uuid: &String) -> Option<String> {
+    use schema::users::dsl::{users,uuid,encrypted_password};
+    users.filter(uuid.eq(user_uuid))
+        .limit(1)
+        .select(encrypted_password)
+        .get_result::<String>(conn)
+        .optional()
+        .unwrap()
+}
+pub fn get_items(conn: &SqliteConnection, users_uuid: &String, limit: u32) -> Option<Vec<Item>> {
+    use schema::items::dsl::{items,user_uuid,updated_at};
     items.filter(user_uuid.eq(users_uuid))
+        .limit(limit as i64)
+        .order(updated_at)
+        .load::<Item>(conn)
+        .optional()
+        .unwrap()
+}
+pub fn get_items_older_or_equal_to(conn: &SqliteConnection, datetime: &NaiveDateTime, users_uuid: &String, limit: u32) -> Option<Vec<Item>> {
+    use schema::items::dsl::{items,user_uuid,updated_at};
+    items.filter(user_uuid.eq(users_uuid).and(updated_at.ge(datetime)))
+        .limit(limit as i64)
+        .order(updated_at)
+        .load::<Item>(conn)
+        .optional()
+        .unwrap()
+}
+pub fn get_items_older_than(conn: &SqliteConnection, datetime: &NaiveDateTime, users_uuid: &String, limit: u32) -> Option<Vec<Item>> {
+    use schema::items::dsl::{items,user_uuid,updated_at};
+    items.filter(user_uuid.eq(users_uuid).and(updated_at.gt(datetime)))
+        .limit(limit as i64)
+        .order(updated_at)
         .load::<Item>(conn)
         .optional()
         .unwrap()

@@ -26,6 +26,6 @@ table! {
         deleted             -> Bool,
         created_at          -> Timestamp,
         updated_at          -> Timestamp,
-        last_user_agent     -> Text,
+        last_user_agent     -> Nullable<Text>,
     }
 }

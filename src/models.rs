@@ -30,18 +30,5 @@ pub struct Item {
     pub deleted: bool,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
-    pub last_user_agent: String,
-}
-
-
-///
-/// Models for exporting data out of the server.
-///
-
-#[derive(Serialize,Deserialize,Debug,PartialEq,Eq)]
-pub struct MinimalItem {
-    pub uuid: String,
-    pub content: Vec<u8>,
-    pub content_type: String,
-    pub created_at: NaiveDateTime,
+    pub last_user_agent: Option<String>,
 }

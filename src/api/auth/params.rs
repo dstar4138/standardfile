@@ -6,7 +6,8 @@ use serde_json;
 use db;
 use pwdetails;
 
-use super::{ERROR_MISSINGEMAIL,encode_error_msg,to_valid_email};
+use api::{ERROR_MISSINGEMAIL,encode_error_msg};
+use super::to_valid_email;
 
 /**
  * Return the parameters used for password generation.

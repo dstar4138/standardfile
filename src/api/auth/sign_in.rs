@@ -4,11 +4,14 @@ use bcrypt::{verify};
 use serde_json::Value;
 
 use models::{User};
-use super::{
+use api::{
     INVALID_EMAIL_OR_PW,
-    encode_user_jwt,encode_error_msg,
-    reqmap_to_existing_user,
+    encode_error_msg,
     load_json_req_body
+};
+use super::{
+    encode_user_jwt,
+    reqmap_to_existing_user,
 };
 
 pub fn sign_in(req: &mut Request) -> IronResult<Response> {

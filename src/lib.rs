@@ -13,6 +13,7 @@ extern crate serde_json;
 #[macro_use]
 extern crate diesel;
 
+extern crate base64;
 extern crate bcrypt;
 extern crate chrono;
 extern crate crypto;

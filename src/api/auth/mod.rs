@@ -10,26 +10,9 @@ pub use self::register::register;
 use db;
 use tokens;
 use models::{User};
-use iron::prelude::*;
 use iron::status;
-use bodyparser;
 use serde_json::Value;
 use serde_json;
-
-static ERROR_MISSINGEMAIL: &'static str = "Please provide email via GET paramater.";
-static UNABLE_TO_REGISTER: &'static str = "Unable to register.";
-static ALREADY_REGISTERED: &'static str = "This email is already registered.";
-static INVALID_EMAIL_OR_PW: &'static str = "Invalid email or password.";
-
-#[derive(Serialize, Deserialize)]
-struct ErrorMsg {
-    error: Msg
-}
-#[derive(Serialize, Deserialize)]
-struct Msg {
-    message: String,
-    status: u16
-}
 
 #[derive(Serialize, Deserialize)]
 struct MinimalUser{
@@ -40,16 +23,6 @@ struct MinimalUser{
 struct JwtMsg {
     user: MinimalUser,
     token: String,
-}
-
-fn encode_error_msg(status: status::Status, error: &str) -> (status::Status, String) {
-    (status, serde_json::to_string(
-         &ErrorMsg {
-             error: Msg {
-                 message: error.to_string(),
-                 status: status.to_u16()
-             }
-         }).unwrap())
 }
 
 fn encode_user_jwt(user: &User) -> (status::Status, String) {
@@ -87,12 +60,4 @@ fn reqmap_to_existing_user(hashmap: &Value) -> Option<User> {
            db::find_user_by_email(&conn, &email)
        }
    }
-}
-fn load_json_req_body(req: &mut Request) -> Result<Value,()> {
-    let json_body = req.get::<bodyparser::Json>();
-    match json_body {
-        Ok(Some(json_body)) => Ok(json_body),
-        Ok(None) => Err(()),
-        Err(_) => Err(())
-    }
 }
