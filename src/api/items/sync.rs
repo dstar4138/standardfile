@@ -1,9 +1,11 @@
 use base64;
 use iron::status;
 use iron::prelude::*;
-use chrono::{NaiveDateTime,Duration,ParseError};
+use chrono::{NaiveDateTime,Duration};
 use serde_json;
 use serde_json::value::Value;
+
+use std::num::ParseIntError;
 
 use db;
 use diesel::prelude::SqliteConnection;
@@ -11,7 +13,6 @@ use models::Item;
 
 static TOKEN_FORMAT_V1 : &'static str = "%s";
 static TOKEN_FORMAT_V2 : &'static str = "%s%.9f";
-static RFC3339_FORMAT  : &'static str = "%Y-%m-%dT%H:%M:%S%.fZ";
 
 use api::{
 //    encode_error_msg,
@@ -23,41 +24,14 @@ use api::{
 use super::{
     SyncError,
     SyncErrorKind,
-    SyncResult
+    SyncResult,
+    SyncResponse,
+    MinimalItem,
+    naivedatetime_to_rfc3339_string,
+    rfc3339_string_to_naivedatetime
 };
 
 use util::current_time;
-
-#[derive(Serialize, Deserialize)]
-struct SyncResponse {
-    retrieved_items: Vec<MinimalItem>,
-    saved_items: Vec<MinimalItem>,
-    unsaved: Vec<MinimalItem>,
-    sync_token: String,
-    cursor_token: Option<String>,
-}
-
-#[derive(Serialize,Deserialize,Debug,Clone,PartialEq,Eq)]
-pub struct MinimalItem {
-    pub uuid: String,
-    pub content: String,
-    pub content_type: String,
-    pub enc_item_key: String,
-    pub auth_hash: Option<String>,
-    #[serde(default)]
-    pub deleted: bool,
-    pub created_at: String,
-    #[serde(default)]
-    pub updated_at: String,
-}
-
-//TODO: find a way to make these baked in.
-fn naivedatetime_to_rfc3339_string(datetime: NaiveDateTime) -> String {
-    format!("{}",datetime.format(RFC3339_FORMAT)).to_string()
-}
-fn rfc3339_string_to_naivedatetime(string_date_time: String) -> Result<NaiveDateTime,ParseError> {
-    NaiveDateTime::parse_from_str(string_date_time.as_str(), RFC3339_FORMAT)
-}
 
 pub fn sync(req: &mut Request) -> IronResult<Response> {
     let user_uuid = match get_current_user_uuid(req) {
@@ -89,6 +63,7 @@ pub fn sync(req: &mut Request) -> IronResult<Response> {
     let res = (status::Ok, serde_json::to_string(&response).unwrap());
     Ok(Response::with(res))
 }
+
 fn get_sync_items(req: &mut Request) -> Vec<MinimalItem> {
     match load_json_req_body(req) {
         Err(_) => vec![],
@@ -129,7 +104,7 @@ fn get_sync_params(req: &mut Request) -> (Option<String>,Option<String>,Option<u
                     info!("SYNC(sync_token='{:?}',cursor_token='{:?}',limit={})",in_sync_token,in_cursor_token,limit);
                     (in_sync_token, in_cursor_token, Some(limit))
                 }
-            }
+           }
         }
     }
 }
@@ -172,7 +147,6 @@ fn get_last_update_from_sync_token(sync_token:String) -> SyncResult<NaiveDateTim
         }
     }
 }
-use std::num::ParseIntError;
 fn parse_v2(timestamp: &str) -> Result<NaiveDateTime,ParseIntError> {
     let stamp : &String = &timestamp.to_owned();
     let tokens: Vec<&str>  = stamp.split(".").collect();
