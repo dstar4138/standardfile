@@ -25,3 +25,5 @@ bcrypt = "0.1"
 diesel = { version = "1.1", features = ["sqlite", "chrono", "extras"] }
 bodyparser = "0.8"
 base64 = "0.9"
+log = "0.4"
+env_logger = "0.5"

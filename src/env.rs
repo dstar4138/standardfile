@@ -1,4 +1,5 @@
 use std::env;
+use env_logger;
 use dotenv::dotenv;
 use clap::{App, Arg};
 
@@ -23,6 +24,7 @@ const SALT_PSEUDO_NONCE: &'static str = "SALT_PSEUDO_NONCE";
 pub const ARG_PORT: &'static str = "port";
 
 pub fn setup_env_arg_parser<'a,'b>() -> App<'a,'b> {
+    env_logger::init();
     dotenv().ok();
 
     App::new(APP_NAME)
