@@ -13,6 +13,7 @@ use models::Item;
 
 static TOKEN_FORMAT_V1 : &'static str = "%s";
 static TOKEN_FORMAT_V2 : &'static str = "%s%.9f";
+static DEFAULT_LIMIT : i64 = 100_000;
 
 use api::{
 //    encode_error_msg,
@@ -91,18 +92,18 @@ fn get_sync_items(req: &mut Request) -> Vec<MinimalItem> {
     }
 }
 /// in_sync_token, in_cursor_token, in_limit
-fn get_sync_params(req: &mut Request) -> (Option<String>,Option<String>,Option<u32>) {
+fn get_sync_params(req: &mut Request) -> (Option<String>,Option<String>,i64) {
     match load_json_req_body(req) {
-        Err(_) => (None,None,None),
+        Err(_) => (None,None,DEFAULT_LIMIT),
         Ok(ref hashmap) => {
             let in_sync_token = unwrap_decode(hashmap.get("sync_token"));
             let in_cursor_token = unwrap_decode(hashmap.get("cursor_token"));
             match hashmap.get("limit") {
-                None => (in_sync_token, in_cursor_token, None),
+                None => (in_sync_token, in_cursor_token, DEFAULT_LIMIT),
                 Some(v) => {
-                    let limit = v.as_u64().unwrap_or(10_000) as u32;
+                    let limit = v.as_i64().unwrap_or(DEFAULT_LIMIT);
                     info!("SYNC(sync_token='{:?}',cursor_token='{:?}',limit={})",in_sync_token,in_cursor_token,limit);
-                    (in_sync_token, in_cursor_token, Some(limit))
+                    (in_sync_token, in_cursor_token, limit)
                 }
            }
         }
@@ -155,12 +156,8 @@ fn parse_v2(timestamp: &str) -> Result<NaiveDateTime,ParseIntError> {
     Ok(NaiveDateTime::from_timestamp(secs,nsecs))
 }
 
-fn do_sync_get(user_uuid:&String, sync_params: (Option<String>,Option<String>,Option<u32>), conn: &SqliteConnection) -> (Vec<MinimalItem>,Option<String>) {
-    let (in_sync_token, in_cursor_token, in_limit) = sync_params;
-    let limit = match in_limit {
-        None => 100_000,
-        Some(val) => val
-    };
+fn do_sync_get(user_uuid:&String, sync_params: (Option<String>,Option<String>,i64), conn: &SqliteConnection) -> (Vec<MinimalItem>,Option<String>) {
+    let (in_sync_token, in_cursor_token, limit) = sync_params;
     let optional_items = match (in_cursor_token, in_sync_token) {
         (None,Some(sync_token)) =>
             match get_last_update_from_sync_token(sync_token) {

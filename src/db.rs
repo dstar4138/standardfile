@@ -76,28 +76,28 @@ pub fn find_user_pw_hash_by_uuid(conn: &SqliteConnection, user_uuid: &String) ->
         .optional()
         .unwrap()
 }
-pub fn get_items(conn: &SqliteConnection, users_uuid: &String, limit: u32) -> Option<Vec<Item>> {
+pub fn get_items(conn: &SqliteConnection, users_uuid: &String, limit: i64) -> Option<Vec<Item>> {
     use schema::items::dsl::{items,user_uuid,updated_at};
     items.filter(user_uuid.eq(users_uuid))
-        .limit(limit as i64)
+        .limit(limit)
         .order(updated_at)
         .load::<Item>(conn)
         .optional()
         .unwrap()
 }
-pub fn get_items_older_or_equal_to(conn: &SqliteConnection, datetime: &NaiveDateTime, users_uuid: &String, limit: u32) -> Option<Vec<Item>> {
+pub fn get_items_older_or_equal_to(conn: &SqliteConnection, datetime: &NaiveDateTime, users_uuid: &String, limit: i64) -> Option<Vec<Item>> {
     use schema::items::dsl::{items,user_uuid,updated_at};
     items.filter(user_uuid.eq(users_uuid).and(updated_at.ge(datetime)))
-        .limit(limit as i64)
+        .limit(limit)
         .order(updated_at)
         .load::<Item>(conn)
         .optional()
         .unwrap()
 }
-pub fn get_items_older_than(conn: &SqliteConnection, datetime: &NaiveDateTime, users_uuid: &String, limit: u32) -> Option<Vec<Item>> {
+pub fn get_items_older_than(conn: &SqliteConnection, datetime: &NaiveDateTime, users_uuid: &String, limit: i64) -> Option<Vec<Item>> {
     use schema::items::dsl::{items,user_uuid,updated_at};
     items.filter(user_uuid.eq(users_uuid).and(updated_at.gt(datetime)))
-        .limit(limit as i64)
+        .limit(limit)
         .order(updated_at)
         .load::<Item>(conn)
         .optional()
