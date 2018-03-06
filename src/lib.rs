@@ -16,6 +16,7 @@ extern crate diesel;
 #[macro_use]
 extern crate log;
 
+extern crate serde;
 extern crate base64;
 extern crate bcrypt;
 extern crate chrono;

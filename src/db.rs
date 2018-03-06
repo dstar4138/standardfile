@@ -38,15 +38,17 @@ pub fn add_user(conn: &SqliteConnection, user: &User) -> () {
         .expect("Error inserting new user");
 }
 
-pub fn update_user(conn: &SqliteConnection, user: User) -> () {
+pub fn update_user(conn: &SqliteConnection, user: User) -> Result<User,()> {
     use schema::users::dsl::*;
-    diesel::update(users.filter(email.eq(&user.email)))
+    match diesel::update(users.filter(email.eq(&user.email)))
         .set((
                 encrypted_password.eq(&user.encrypted_password),
                 updated_at.eq(&user.updated_at)
             ))
-        .execute(conn)
-        .expect("Error updating existing user");
+        .execute(conn) {
+        Err(_) => Err(()),
+        Ok(_)  => Ok(user)
+    }
 }
 
 pub fn add_or_update_item(conn: &SqliteConnection, item: Item) -> Result<Item,Item> {

@@ -1,68 +1,64 @@
-use base64;
 use iron::status;
 use iron::prelude::*;
-use chrono::{NaiveDateTime,Duration};
+use chrono::{Duration};
 use serde_json;
 use serde_json::value::Value;
 
-use std::num::ParseIntError;
-
+use super::timestamp::ZuluTimestamp;
+use super::pagination::{PaginationToken};
 use db;
 use diesel::prelude::SqliteConnection;
 use models::Item;
 
-static TOKEN_FORMAT_V1 : &'static str = "%s";
-static TOKEN_FORMAT_V2 : &'static str = "%s%.9f";
 static DEFAULT_LIMIT : i64 = 100_000;
+static FULL_FAILURE_RESPONSE : &'static str = "{}";
 
 use api::{
 //    encode_error_msg,
     load_json_req_body,
     get_current_user_uuid,
-    get_user_agent
+    get_user_agent,
+    ResultWithErrorResponse
 };
 
 use super::{
-    SyncError,
-    SyncErrorKind,
-    SyncResult,
     SyncResponse,
     MinimalItem,
-    naivedatetime_to_rfc3339_string,
-    rfc3339_string_to_naivedatetime
+    IsDateTime
 };
 
 use util::current_time;
 
 pub fn sync(req: &mut Request) -> IronResult<Response> {
-    let user_uuid = match get_current_user_uuid(req) {
-        Ok(val) => {
-            info!("SYNC(User={:?})",val);
-            val
-        },
-        Err(e) => return Ok(Response::with(e))
-    };
-    let items = get_sync_items(req);
-    let sync_params = get_sync_params(req);
     let conn = db::get_connection();
-    let (retrieved_items, cursor_token) = do_sync_get(&user_uuid, sync_params, &conn);
-    let user_agent = get_user_agent(req);
-    let (saved_items, unsaved) = do_sync_save(&user_uuid, items, &user_agent, &conn);
+    let response = match do_sync(req, &conn) {
+        Err(error_msg) => error_msg,
+        Ok(response) => response
+    };
+    info!("sync response: {:?}", response);
+    Ok(Response::with(response))
+}
+fn do_sync(req: &mut Request, conn: &SqliteConnection) -> ResultWithErrorResponse<(status::Status, String)> {
+    let user_uuid   = get_current_user_uuid(req, conn)?;
+    let user_agent  = get_user_agent(req)?;
+    let items       = get_sync_items(req);
+    let sync_params = get_sync_params(req);
+    info!("User attempting sync, {}, via user agent, '{}'.", user_uuid, user_agent);
+
+    let (retrieved_items, cursor_token) = do_sync_get(&user_uuid, sync_params, conn);
+    let (saved_items, unsaved)          = do_sync_save(&user_uuid, items, &user_agent, conn);
 
     // add 1 microsecond to avoid returning same object in subsequent sync, same as ruby code
     let last_updated = current_time() + Duration::microseconds(1);
-    let sync_token = generate_sync_token(&last_updated);
+    let sync_token = PaginationToken::from_datetime(last_updated);
 
-    let response = SyncResponse {
+    Ok((status::Ok, serde_json::to_string(&SyncResponse {
         retrieved_items,
         saved_items,
         unsaved,
         sync_token,
         cursor_token
-    };
-
-    let res = (status::Ok, serde_json::to_string(&response).unwrap());
-    Ok(Response::with(res))
+    }).unwrap_or(FULL_FAILURE_RESPONSE.to_string())))
 }
 
 fn get_sync_items(req: &mut Request) -> Vec<MinimalItem> {
@@ -91,8 +87,10 @@ fn get_sync_items(req: &mut Request) -> Vec<MinimalItem> {
         }
     }
 }
+
+
 /// in_sync_token, in_cursor_token, in_limit
-fn get_sync_params(req: &mut Request) -> (Option<String>,Option<String>,i64) {
+fn get_sync_params(req: &mut Request) -> (Option<PaginationToken>,Option<PaginationToken>,i64) {
     match load_json_req_body(req) {
         Err(_) => (None,None,DEFAULT_LIMIT),
         Ok(ref hashmap) => {
@@ -109,86 +107,34 @@ fn get_sync_params(req: &mut Request) -> (Option<String>,Option<String>,i64) {
         }
     }
 }
-fn unwrap_decode(val: Option<&Value>) -> Option<String> {
+fn unwrap_decode(val: Option<&Value>) -> Option<PaginationToken> {
     match val {
         None => None,
         Some(v) => serde_json::from_value(v.to_owned()).unwrap_or(None)
     }
 }
-fn generate_sync_token(last_update: &NaiveDateTime) -> String {
-    let version : u32 = 2;
-    let timestamp = last_update.format(TOKEN_FORMAT_V2);
-    base64::encode(&format!("{}:{}",version,timestamp))
-}
-fn get_last_update_from_sync_token(sync_token:String) -> SyncResult<NaiveDateTime> {
-    let bytes = base64::decode(&sync_token).unwrap();
-    let token = String::from_utf8(bytes).unwrap();
-    let vec : Vec<&str> = token.split(":").collect();
-    if vec.len() != 2 {
-        return Err(SyncError(SyncErrorKind::InvalidToken));
-    }
 
-    let version = vec.get(0).unwrap().parse::<u32>().unwrap();
-    let timestamp = vec.get(1).unwrap();
-    info!("Attempting to decode timestamp in token: v={}, t={}", version, timestamp);
-    match version {
-        1 => match NaiveDateTime::parse_from_str(timestamp, TOKEN_FORMAT_V1) {
-            Err(e) => {
-                error!("failure to parse v1 token: {}",e);
-                Err(SyncError(SyncErrorKind::ParseErrorToken))
-            },
-            Ok(datetime) => Ok(datetime)
-        }
-        _ => match parse_v2(timestamp) {
-            Err(_) => {
-                error!("failure to parse v2 token: {}","parseIntError");
-                Err(SyncError(SyncErrorKind::ParseErrorToken))
-            },
-            Ok(datetime) => Ok(datetime)
-        }
-    }
-}
-fn parse_v2(timestamp: &str) -> Result<NaiveDateTime,ParseIntError> {
-    let stamp : &String = &timestamp.to_owned();
-    let tokens: Vec<&str>  = stamp.split(".").collect();
-    let secs = tokens.get(0).unwrap().parse::<i64>()?;
-    let nsecs = tokens.get(1).unwrap().parse::<u32>()?;
-    Ok(NaiveDateTime::from_timestamp(secs,nsecs))
-}
-
-fn do_sync_get(user_uuid:&String, sync_params: (Option<String>,Option<String>,i64), conn: &SqliteConnection) -> (Vec<MinimalItem>,Option<String>) {
+fn do_sync_get(user_uuid:&String, sync_params: (Option<PaginationToken>,Option<PaginationToken>,i64), conn: &SqliteConnection) -> (Vec<MinimalItem>,Option<PaginationToken>) {
     let (in_sync_token, in_cursor_token, limit) = sync_params;
     let optional_items = match (in_cursor_token, in_sync_token) {
-        (None,Some(sync_token)) =>
-            match get_last_update_from_sync_token(sync_token) {
-                Ok(datetime) =>{
-                    info!("Using sync_token, {}",datetime);
-                    db::get_items_older_or_equal_to(conn, &datetime, user_uuid, limit)
-                },
-                Err(e) => {
-                    info!("tried to use sync_token, {}",e);
-                    db::get_items(conn, user_uuid, limit)
-                }
-            },
-        (Some(cursor_token), _) =>
-            match get_last_update_from_sync_token(cursor_token) {
-                Ok(datetime) => {
-                    info!("Using cursor_token, {}", datetime);
-                    db::get_items_older_than(conn, &datetime, user_uuid, limit)
-                },
-                Err(e) => {
-                    info!("tried to use cursor_token, {}", e);
-                    db::get_items(conn, user_uuid, limit)
-                }
-            },
+        (None,Some(sync_token)) => {
+            let datetime = sync_token.to_datetime();
+            info!("Using sync_token, {}",datetime);
+            db::get_items_older_or_equal_to(conn, &datetime, user_uuid, limit)
+        },
+        (Some(cursor_token), _) => {
+            let datetime = cursor_token.to_datetime();
+            info!("Using cursor_token, {}", datetime);
+            db::get_items_older_than(conn, &datetime, user_uuid, limit)
+        },
         (None, None) => db::get_items(conn, user_uuid, limit)
     };
     let items = minify_items(optional_items);
     let cursor_token = match items.last() {
         None => None,
         Some(last) => {
-            let datetime = rfc3339_string_to_naivedatetime(last.updated_at.clone()).unwrap_or(current_time());
-            Some(generate_sync_token(&datetime))
+            let datetime = last.updated_at.to_datetime();
+            Some(PaginationToken::from_datetime(datetime))
         }
     };
     (items,cursor_token)
@@ -209,11 +155,11 @@ fn minify_item(item: &Item) -> MinimalItem {
         enc_item_key: item.enc_item_key.clone(),
         auth_hash: Some(item.auth_hash.clone()),
         deleted: item.deleted.clone(),
-        created_at: naivedatetime_to_rfc3339_string(item.created_at.clone()),
-        updated_at: naivedatetime_to_rfc3339_string(item.updated_at.clone()),
+        created_at: ZuluTimestamp::from_datetime(item.created_at.clone()),
+        updated_at: ZuluTimestamp::from_datetime(item.updated_at.clone()),
     }
 }
-fn maximize_item(user_uuid: &String, last_user_agent: &Option<String>, item: &MinimalItem) -> Item {
+fn maximize_item(user_uuid: &String, last_user_agent: &String, item: &MinimalItem) -> Item {
     Item { //TODO: this looks dumb... is this seriously what i have to do?
         uuid: item.uuid.clone(),
         content: item.content.clone().into_bytes(),
@@ -222,9 +168,9 @@ fn maximize_item(user_uuid: &String, last_user_agent: &Option<String>, item: &Mi
         auth_hash: item.auth_hash.clone().unwrap_or("".to_string()),
         user_uuid: user_uuid.to_owned(),
         deleted: item.deleted.clone(),
-        created_at: rfc3339_string_to_naivedatetime(item.created_at.clone()).unwrap_or(current_time()),
-        updated_at: rfc3339_string_to_naivedatetime(item.updated_at.clone()).unwrap_or(current_time()),
-        last_user_agent: last_user_agent.to_owned(),
+        created_at: item.created_at.clone().to_datetime(),
+        updated_at: item.updated_at.clone().to_datetime(),
+        last_user_agent: Some(last_user_agent.to_owned()),
     }
 }
 fn update_for_deleted(item: Item) -> Item {
@@ -249,7 +195,7 @@ fn unwrap(val : Vec<Result<Item,Item>>) -> Vec<MinimalItem> {
         .map(|&ref item: &Item | minify_item(item))
         .collect()
 }
-fn do_sync_save(user_uuid:&String, items: Vec<MinimalItem>, user_agent: &Option<String>, conn: &SqliteConnection) -> (Vec<MinimalItem>, Vec<MinimalItem>) {
+fn do_sync_save(user_uuid:&String, items: Vec<MinimalItem>, user_agent: &String, conn: &SqliteConnection) -> (Vec<MinimalItem>, Vec<MinimalItem>) {
     let (saved_items, unsaved_items) = items
         .iter()
         .map(|&ref item: &MinimalItem| maximize_item(user_uuid, user_agent,item))

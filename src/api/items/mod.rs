@@ -1,46 +1,27 @@
 mod sync;
+mod timestamp;
+mod pagination;
+
 pub use self::sync::sync;
+pub use self::pagination::{PaginationToken};
+pub use self::pagination::serde::*;
+pub use self::timestamp::ZuluTimestamp;
 
-use std::fmt;
-use std::error::Error;
-use chrono::{NaiveDateTime,ParseError};
 
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-struct SyncError(SyncErrorKind);
-
-#[derive(Debug, Clone, PartialEq, Eq, Copy)]
-enum SyncErrorKind {
-    /// The Sync or Cursor token was invalid, either missing the version or timestamp.
-    InvalidToken,
-
-    /// Failure to parse token, may not meet expectations
-    ParseErrorToken
+// TODO: can this be a From/Into so it can do casting for us.
+use chrono::NaiveDateTime;
+pub trait IsDateTime {
+    fn to_datetime(&self) -> NaiveDateTime;
+    fn from_datetime(datetime: NaiveDateTime) -> Self;
 }
-
-impl Error for SyncError {
-    fn description(&self) -> &str {
-        match self.0 {
-            SyncErrorKind::InvalidToken => "Sync or cursor token was invalid.",
-            SyncErrorKind::ParseErrorToken => "Unable to parse timestamp for sync or cursor token.",
-        }
-    }
-}
-
-impl fmt::Display for SyncError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.description().fmt(f)
-    }
-}
-
-type SyncResult<T> = Result<T, SyncError>;
 
 #[derive(Serialize, Deserialize)]
 struct SyncResponse {
     retrieved_items: Vec<MinimalItem>,
     saved_items: Vec<MinimalItem>,
     unsaved: Vec<MinimalItem>,
-    sync_token: String,
-    cursor_token: Option<String>,
+    sync_token: PaginationToken,
+    cursor_token: Option<PaginationToken>,
 }
 
 #[derive(Serialize,Deserialize,Debug,Clone,PartialEq,Eq)]
@@ -52,17 +33,7 @@ pub struct MinimalItem {
     pub auth_hash: Option<String>,
     #[serde(default)]
     pub deleted: bool,
-    pub created_at: String,
-    #[serde(default)]
-    pub updated_at: String,
-}
-
-static RFC3339_FORMAT  : &'static str = "%Y-%m-%dT%H:%M:%S%.fZ";
-
-//TODO: find a way to make these baked in.
-fn naivedatetime_to_rfc3339_string(datetime: NaiveDateTime) -> String {
-    format!("{}",datetime.format(RFC3339_FORMAT)).to_string()
-}
-fn rfc3339_string_to_naivedatetime(string_date_time: String) -> Result<NaiveDateTime,ParseError> {
-    NaiveDateTime::parse_from_str(string_date_time.as_str(), RFC3339_FORMAT)
+    pub created_at: ZuluTimestamp,
+    #[serde(default)] // Will deserialize into current_time if none given; i.e. item.touch
+    pub updated_at: ZuluTimestamp,
 }
