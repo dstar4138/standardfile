@@ -19,7 +19,7 @@ This will be a mess. Please save me.
   - [X] GET /auth/params
   - [X] POST /items/sync
   - [X] PATCH /auth, POST /auth/change_pw
-  - [ ] POST /auth/update
+  - [X] POST /auth/update
 
 ### Usage:
 
