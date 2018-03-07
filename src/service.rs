@@ -14,7 +14,8 @@ pub fn handler() -> Router {
         params:     get   "/auth/params"  => api::auth::params,
         auth:       post  "/auth"         => api::auth::register,
         sign_in:    post  "/auth/sign_in" => api::auth::sign_in,
-/*        up_auth:    patch "/auth"         => up_auth, */
+        patch_pw:   patch "/auth"         => api::auth::change_pw,
+        change_pw:  post  "/auth/change_pw"=> api::auth::change_pw,
 
         // ITEMS ------------------------------------
         sync:       post   "/items/sync"  => api::items::sync

@@ -43,7 +43,14 @@ pub fn update_user(conn: &SqliteConnection, user: User) -> Result<User,()> {
     match diesel::update(users.filter(email.eq(&user.email)))
         .set((
                 encrypted_password.eq(&user.encrypted_password),
-                updated_at.eq(&user.updated_at)
+                updated_at        .eq(&user.updated_at),
+                pw_func           .eq(&user.pw_func),
+                pw_alg            .eq(&user.pw_alg),
+                pw_cost           .eq(&user.pw_cost),
+                pw_key_size       .eq(&user.pw_key_size),
+                pw_nonce          .eq(&user.pw_nonce),
+                pw_salt           .eq(&user.pw_salt),
+                version           .eq(&user.version)
             ))
         .execute(conn) {
         Err(_) => Err(()),
@@ -63,6 +70,14 @@ pub fn add_or_update_item(conn: &SqliteConnection, item: Item) -> Result<Item,It
 pub fn find_user_by_email(conn: &SqliteConnection, user_email: &String) -> Option<User> {
     use schema::users::dsl::{users,email};
     users.filter(email.eq(user_email))
+        .limit(1)
+        .get_result::<User>(conn)
+        .optional()
+        .unwrap()
+}
+pub fn find_user_by_uuid(conn: &SqliteConnection, user_uuid: &String) -> Option<User> {
+    use schema::users::dsl::{users,uuid};
+    users.filter(uuid.eq(user_uuid))
         .limit(1)
         .get_result::<User>(conn)
         .optional()
