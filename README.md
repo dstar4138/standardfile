@@ -1,5 +1,9 @@
 # A Rust StandardFile Server Implementation
 
+[![Linux build status](https://travis-ci.org/dstar4138/standardfile.svg?branch=master)](https://travis-ci.org/dstar4138/standardfile)
+[![Dependency status](https://deps.rs/repo/github/dstar4138/standardfile/status.svg)](https://deps.rs/repo/github/dstar4138/standardfile)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 This is a rust [StandardFile](https://standardfile.org/#api) implementation.
 
 It is a WIP. It was started to learn Iron/Hyper/Tokio and Rust in general. 

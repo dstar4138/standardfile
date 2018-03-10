@@ -1,0 +1,14 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+matrix:
+  allow_failures:
+    - rust: nightly
+cache: cargo
+# Uncomment when we want to use coveralls.io
+# before_script:
+#  - cargo install cargo-travis -f
+script:
+  - make travis
