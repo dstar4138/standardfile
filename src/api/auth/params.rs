@@ -3,8 +3,8 @@ use iron::status;
 use urlencoded::UrlEncodedQuery;
 use serde_json;
 
-use db;
 use pwdetails;
+use db::{get_connection,StandardFileStorage};
 
 use api::{ERROR_MISSINGEMAIL,encode_error_msg};
 use super::to_valid_email;
@@ -31,8 +31,8 @@ pub fn params(req: &mut Request) -> IronResult<Response> {
     Ok(Response::with(res))
 }
 fn get_user_pw_details_or_default(email: &String) -> pwdetails::PasswordDetails {
-    let conn = db::get_connection();
-    match db::find_user_by_email(&conn, email) {
+    let conn = get_connection().expect("Unable to get db connection.");
+    match conn.find_user_by_email(email) {
         None =>
             pwdetails::new_pw_details(email),
         Some(user) =>

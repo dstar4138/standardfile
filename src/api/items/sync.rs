@@ -6,8 +6,7 @@ use serde_json::value::Value;
 
 use super::timestamp::ZuluTimestamp;
 use super::pagination::{PaginationToken};
-use db;
-use diesel::prelude::SqliteConnection;
+use db::{get_connection,DbConnection,StandardFileStorage};
 use models::Item;
 
 static DEFAULT_LIMIT : i64 = 100_000;
@@ -30,7 +29,7 @@ use super::{
 use util::current_time;
 
 pub fn sync(req: &mut Request) -> IronResult<Response> {
-    let conn = db::get_connection();
+    let conn = get_connection().expect("Unable to get db connection.");
     let response = match do_sync(req, &conn) {
         Err(error_msg) => error_msg,
         Ok(response) => response
@@ -38,7 +37,7 @@ pub fn sync(req: &mut Request) -> IronResult<Response> {
     info!("sync response: {:?}", response);
     Ok(Response::with(response))
 }
-fn do_sync(req: &mut Request, conn: &SqliteConnection) -> ResultWithErrorResponse<(status::Status, String)> {
+fn do_sync(req: &mut Request, conn: &DbConnection) -> ResultWithErrorResponse<(status::Status, String)> {
     let user_uuid   = get_current_user_uuid(req, conn)?;
     let user_agent  = get_user_agent(req)?;
     let items       = get_sync_items(req);
@@ -114,20 +113,20 @@ fn unwrap_decode(val: Option<&Value>) -> Option<PaginationToken> {
     }
 }
 
-fn do_sync_get(user_uuid:&String, sync_params: (Option<PaginationToken>,Option<PaginationToken>,i64), conn: &SqliteConnection) -> (Vec<MinimalItem>,Option<PaginationToken>) {
+fn do_sync_get(user_uuid:&String, sync_params: (Option<PaginationToken>,Option<PaginationToken>,i64), conn: &DbConnection) -> (Vec<MinimalItem>,Option<PaginationToken>) {
     let (in_sync_token, in_cursor_token, limit) = sync_params;
     let optional_items = match (in_cursor_token, in_sync_token) {
         (None,Some(sync_token)) => {
             let datetime = sync_token.to_datetime();
             info!("Using sync_token, {}",datetime);
-            db::get_items_older_or_equal_to(conn, &datetime, user_uuid, limit)
+            conn.get_items_older_or_equal_to(&datetime, user_uuid, limit)
         },
         (Some(cursor_token), _) => {
             let datetime = cursor_token.to_datetime();
             info!("Using cursor_token, {}", datetime);
-            db::get_items_older_than(conn, &datetime, user_uuid, limit)
+            conn.get_items_older_than(&datetime, user_uuid, limit)
         },
-        (None, None) => db::get_items(conn, user_uuid, limit)
+        (None, None) => conn.get_items(user_uuid, limit)
     };
     let items = minify_items(optional_items);
     let cursor_token = match items.last() {
@@ -195,12 +194,12 @@ fn unwrap(val : Vec<Result<Item,Item>>) -> Vec<MinimalItem> {
         .map(|&ref item: &Item | minify_item(item))
         .collect()
 }
-fn do_sync_save(user_uuid:&String, items: Vec<MinimalItem>, user_agent: &String, conn: &SqliteConnection) -> (Vec<MinimalItem>, Vec<MinimalItem>) {
+fn do_sync_save(user_uuid:&String, items: Vec<MinimalItem>, user_agent: &String, conn: &DbConnection) -> (Vec<MinimalItem>, Vec<MinimalItem>) {
     let (saved_items, unsaved_items) = items
         .iter()
         .map(|&ref item: &MinimalItem| maximize_item(user_uuid, user_agent,item))
         .map(|item: Item| update_for_deleted(item))
-        .map(|item: Item| db::add_or_update_item(conn,item))
+        .map(|item: Item| conn.add_or_update_item(item))
         .partition(|db_result: &Result<Item,Item>| db_result.is_ok());
     (unwrap(saved_items), unwrap(unsaved_items))
 }

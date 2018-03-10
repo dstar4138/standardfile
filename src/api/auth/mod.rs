@@ -11,12 +11,12 @@ pub use self::register::register;
 pub use self::change_pw::change_pw;
 pub use self::update::update;
 
-use db;
 use tokens;
 use models::{User};
 use iron::status;
 use serde_json::Value;
 use serde_json;
+use db::{get_connection,StandardFileStorage};
 
 #[derive(Serialize, Deserialize)]
 struct MinimalUser{
@@ -60,8 +60,8 @@ fn reqmap_to_existing_user(hashmap: &Value) -> Option<User> {
    match as_valid_email(hashmap.get(&"email".to_string()).unwrap()) {
        None => None,
        Some(email) => {
-           let conn = db::get_connection();
-           db::find_user_by_email(&conn, &email)
+           let conn = get_connection().expect("Unable to get db conn.");
+           conn.find_user_by_email(&email)
        }
    }
 }

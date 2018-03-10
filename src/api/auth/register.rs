@@ -3,7 +3,7 @@ use iron::status;
 use bcrypt::{DEFAULT_COST,hash};
 use serde_json::Value;
 
-use db;
+use db::{get_connection,StandardFileStorage};
 use users;
 use pwdetails;
 use models::{User};
@@ -55,8 +55,8 @@ fn build_register_user_from_reqmap(hashmap: &Value) -> Result<User, String> {
     let new_user = users::create_new(email,encrypted_password,pwd);
 
     // Store/Return it.
-    let conn = db::get_connection();
-    db::add_user(&conn,&new_user);
+    let conn = get_connection().expect("Unable to get db connection");
+    conn.add_user(&new_user);
     Ok(new_user)
 }
 fn attempt_get(key: &String, hashmap: &Value) -> Result<Value,String> {

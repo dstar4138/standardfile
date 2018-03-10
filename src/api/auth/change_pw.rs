@@ -1,7 +1,7 @@
 use iron::prelude::*;
 use iron::status;
 
-use db;
+use db::{get_connection,StandardFileStorage};
 use std::fmt;
 use pwdetails;
 use models::{User};
@@ -18,14 +18,14 @@ use api::{
  *
  */
 pub fn change_pw(req: &mut Request) -> IronResult<Response> {
-    let conn = db::get_connection();
+    let conn = get_connection().expect("Unable to get db conn.");
     let res = match get_current_user_uuid(req, &conn) {
         Err(err_msg) => err_msg,
         Ok(user_uuid) => match load_json_req_body(req) {
             Err(_) => encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS),
             Ok(ref hashmap) => {
                 info!("change pw: {:?}", hashmap);
-                match db::find_user_by_uuid(&conn, &user_uuid) {
+                match conn.find_user_by_uuid(&user_uuid) {
                     None => encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS),
                     Some(user) => {
                         let new_pass = get(hashmap, "new_password")?.as_str().unwrap();
@@ -34,10 +34,8 @@ pub fn change_pw(req: &mut Request) -> IronResult<Response> {
                             encrypted_password: new_pass_hash,
                             ..user
                         })?;
-                        match db::update_user(&conn, updated_user) {
-                            Err(_) => encode_error_msg(status::InternalServerError, &"Backend failure"),
-                            Ok(_) => (status::NoContent, String::new())
-                        }
+                        conn.update_user(updated_user);
+                        (status::NoContent, String::new())
                     }
                 }
             }
