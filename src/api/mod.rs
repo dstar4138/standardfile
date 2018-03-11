@@ -1,13 +1,17 @@
 pub mod auth;
 pub mod items;
 
-use bodyparser;
-use iron::status;
-use iron::headers::*;
-use iron::prelude::*;
 use serde_json;
 use serde_json::Value;
 use tokens;
+
+use mime;
+use futures::{Future, Stream};
+use hyper::{Body,Headers,StatusCode,Response};
+use hyper::header::{UserAgent, Authorization, Bearer};
+use gotham::state::{FromState,State};
+use gotham::http::response::create_response;
+
 use db::{DbConnection,StandardFileStorage};
 
 static ERROR_MISSINGEMAIL: &'static str = "Please provide email via GET paramater.";
@@ -26,48 +30,55 @@ struct Msg {
     status: u16
 }
 
-type ResultWithErrorResponse<T> = Result<T,(status::Status,String)>;
-
-fn encode_error_msg(status: status::Status, error: &str) -> (status::Status, String) {
-    (status, serde_json::to_string(
-         &ErrorMsg {
-             error: Msg {
-                 message: error.to_string(),
-                 status: status.to_u16()
-             }
-         }).unwrap())
+#[derive(Deserialize, StateData, StaticResponseExtender)]
+pub struct QueryStringExtractor {
+    email: String,
 }
 
-fn load_json_req_body(req: &mut Request) -> Result<Value,()> {
-    let json_body = req.get::<bodyparser::Json>();
-    match json_body {
-        Ok(Some(json_body)) => Ok(json_body),
-        Ok(None) => Err(()),
+fn encode_error_msg(state: &State, status: StatusCode, error: &str) -> Response {
+    let body = ( serde_json::to_vec(
+        &ErrorMsg {
+            error: Msg {
+                message: error.to_string(),
+                status: status.as_u16()
+            }
+        }).unwrap(), mime::APPLICATION_JSON);
+    create_response(state, status, Some(body))
+}
+
+fn load_json_req_body(state: &mut State) -> Result<Value,()> {
+    match Body::take_from(state).concat2().map(
+        |full_body| {
+                let body_content = String::from_utf8(full_body.to_vec()).unwrap();
+                serde_json::to_value(body_content)
+            }).wait() {
+        Ok(Ok(json_body)) => Ok(json_body),
+        Ok(Err(_)) => Err(()),
         Err(_) => Err(())
     }
 }
 
-fn get_user_agent(req: &mut Request) -> ResultWithErrorResponse<String> {
-    match req.headers.get::<UserAgent>() {
-        None => Ok("".to_string()),
-        Some(&UserAgent(ref user_agent)) => Ok(user_agent.clone())
+fn get_user_agent(state: &State) -> String {
+    match Headers::borrow_from(state).get::<UserAgent>() {
+        None => "".to_string(),
+        Some(ref user_agent) => user_agent.to_string()
     }
 }
 
-fn get_current_user_uuid(req: &mut Request, conn: &DbConnection) -> ResultWithErrorResponse<String> {
-    match req.headers.get::<Authorization<Bearer>>() {
-        None =>Err(encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS)),
+fn get_current_user_uuid(state: &State, conn: &DbConnection) -> Result<String,Response> {
+    match Headers::borrow_from(state).get::<Authorization<Bearer>>() {
+        None => Err(encode_error_msg(state,StatusCode::Unauthorized, INVALID_CREDENTIALS)),
         Some(ref auth_token) => {
             match tokens::decode_jwt(&auth_token.token) {
-                Err(_) => Err(encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS)),
+                Err(_) => Err(encode_error_msg(state,StatusCode::Unauthorized, INVALID_CREDENTIALS)),
                 Ok(claims) =>
                     match conn.find_user_by_uuid(&claims.user_uuid) {
-                        None => Err(encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS)),
+                        None => Err(encode_error_msg(state,StatusCode::Unauthorized, INVALID_CREDENTIALS)),
                         Some(user) =>
                             if claims.pw_hash == tokens::sha256(&user.encrypted_password) {
                                 Ok(claims.user_uuid)
                             } else {
-                                Err(encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS))
+                                Err(encode_error_msg(state, StatusCode::Unauthorized, INVALID_CREDENTIALS))
                             }
                     }
             }

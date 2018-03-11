@@ -1,12 +1,13 @@
-use iron::prelude::*;
-use iron::status;
-
 use db::{get_connection,StandardFileStorage};
-use std::fmt;
 use pwdetails;
 use models::{User};
 use bcrypt::{DEFAULT_COST, hash};
 use serde_json::Value;
+
+use hyper::{StatusCode,Response};
+use gotham::state::State;
+use gotham::http::response::create_response;
+
 use api::{
     INVALID_CREDENTIALS,
     encode_error_msg,
@@ -14,50 +15,43 @@ use api::{
     get_current_user_uuid
 };
 
-/**
- *
- */
-pub fn change_pw(req: &mut Request) -> IronResult<Response> {
+
+pub fn change_pw(mut state: State) -> (State, Response) {
     let conn = get_connection().expect("Unable to get db conn.");
-    let res = match get_current_user_uuid(req, &conn) {
+    let response = match get_current_user_uuid(&state, &conn) {
         Err(err_msg) => err_msg,
-        Ok(user_uuid) => match load_json_req_body(req) {
-            Err(_) => encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS),
+        Ok(user_uuid) => match load_json_req_body(&mut state) {
+            Err(_) => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_CREDENTIALS),
             Ok(ref hashmap) => {
                 info!("change pw: {:?}", hashmap);
                 match conn.find_user_by_uuid(&user_uuid) {
-                    None => encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS),
+                    None => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_CREDENTIALS),
                     Some(user) => {
-                        let new_pass = get(hashmap, "new_password")?.as_str().unwrap();
-                        let new_pass_hash = hash(new_pass, DEFAULT_COST).unwrap();
-                        let updated_user = update_pw_params(hashmap, User {
-                            encrypted_password: new_pass_hash,
-                            ..user
-                        })?;
-                        conn.update_user(updated_user);
-                        (status::NoContent, String::new())
+                        match hashmap.get("new_password") {
+                            None =>  encode_error_msg(&state, StatusCode::BadRequest, &format!("Missing parameter {}", "new_password")),
+                            Some(val) => {
+                                let new_pass = val.as_str().unwrap();
+                                let new_pass_hash = hash(new_pass, DEFAULT_COST).unwrap();
+                                let updated_user = update_pw_params(hashmap, User {
+                                    encrypted_password: new_pass_hash,
+                                    ..user
+                                });
+                                conn.update_user(updated_user);
+                                create_response(&state, StatusCode::NoContent, None)
+                            }
+                        }
                     }
                 }
             }
         }
     };
-    Ok(Response::with(res))
+    (state,response)
 }
 
-fn get<'a>(hashmap: &'a Value, key: &str) -> Result<&'a Value,IronError> {
-    match hashmap.get(key) {
-        None => {
-            let msg = encode_error_msg(status::BadRequest, &format!("Missing parameter {}", key));
-            Err(IronError::new(fmt::Error, msg))
-        },
-        Some(val) => Ok(val)
-    }
-}
-
-fn update_pw_params(hashmap : &Value, user: User) -> Result<User,IronError> {
+fn update_pw_params(hashmap : &Value, user: User) -> User {
     let defaults = pwdetails::get_pw_details(&user);
     let pw_params = lift_pw_params(hashmap,defaults);
-    Ok(User {
+    User {
         pw_func:     pw_params.pw_func.clone(),
         pw_alg:      pw_params.pw_alg.clone(),
         pw_cost:     pw_params.pw_cost.clone(),
@@ -66,7 +60,7 @@ fn update_pw_params(hashmap : &Value, user: User) -> Result<User,IronError> {
         pw_salt:     pw_params.pw_salt.clone(),
         version:     pw_params.version.clone(),
         ..user
-    })
+    }
 }
 fn lift_pw_params(hashmap: &Value, default_pwd: pwdetails::PasswordDetails) -> pwdetails::PasswordDetails {
     pwdetails::PasswordDetails {

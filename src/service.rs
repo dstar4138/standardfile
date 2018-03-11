@@ -1,36 +1,47 @@
-use iron::prelude::*;
-use iron::status;
-use router::Router;
-
 use api;
+use api::QueryStringExtractor;
+
+use gotham::state::State;
+use gotham::router::Router;
+use gotham::router::builder::*;
+use hyper::{Response,StatusCode};
 
 static INDEX: &'static [u8] = b"For API, see https://standardfile.org";
 
-pub fn handler() -> Router {
-    return router!(
-        index:      any   "/"             => index,
-        echo:       get   "/echo/:q"      => echo,
+pub fn router() -> Router {
+    build_simple_router(|route| {
+        // INDEX ------------------------------------
+        route.get_or_head("/").to(index);
+
         // AUTH -------------------------------------
-        params:     get   "/auth/params"  => api::auth::params,
-        auth:       post  "/auth"         => api::auth::register,
-        sign_in:    post  "/auth/sign_in" => api::auth::sign_in,
-        patch_pw:   patch "/auth"         => api::auth::change_pw,
-        change_pw:  post  "/auth/change_pw"=> api::auth::change_pw,
-        update:     post  "/auth/update"  => api::auth::update,
+        route
+            .associate("/auth",|assoc| {
+                assoc.post().to(api::auth::register);
+                assoc.patch().to(api::auth::change_pw);
+            });
+        route
+            .get("/auth/params")
+            .with_query_string_extractor::<QueryStringExtractor>()
+            .to(api::auth::params);
+        route
+            .post("/auth/sign_in")
+            .to(api::auth::sign_in);
+        route
+            .post("/auth/change_pw")
+            .to(api::auth::change_pw);
+        route
+            .post("/auth/update")
+            .to(api::auth::update);
 
         // ITEMS ------------------------------------
-        sync:       post   "/items/sync"  => api::items::sync
-    )
+        route
+            .post("/items/sync")
+            .to(api::items::sync);
+    })
 }
 
-fn index(_: &mut Request) -> IronResult<Response> {
-    Ok(
-        Response::with((status::Ok, INDEX))
-    )
-}
-
-fn echo(req: &mut Request) -> IronResult<Response> {
-    let ref query = req.extensions.get::<Router>()
-            .unwrap().find("q").unwrap_or("/");
-    Ok(Response::with((status::Ok, *query)))
+fn index(state: State) -> (State, Response) {
+    (state, Response::new()
+             .with_status(StatusCode::Ok)
+             .with_body(INDEX))
 }

@@ -1,7 +1,8 @@
-use iron::prelude::*;
-use iron::status;
 use bcrypt::{verify};
 use serde_json::Value;
+
+use gotham::state::State;
+use hyper::{StatusCode,Response};
 
 use models::{User};
 use api::{
@@ -14,23 +15,23 @@ use super::{
     reqmap_to_existing_user,
 };
 
-pub fn sign_in(req: &mut Request) -> IronResult<Response> {
-    let res = match load_json_req_body(req) {
-        Err(_) => encode_error_msg(status::Unauthorized, INVALID_EMAIL_OR_PW),
+pub fn sign_in(mut state: State) -> (State,Response) {
+    let response = match load_json_req_body(&mut state) {
+        Err(_) => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_EMAIL_OR_PW),
         Ok(ref hashmap) => {
             match reqmap_to_existing_user(hashmap) {
-                None => encode_error_msg(status::Unauthorized, INVALID_EMAIL_OR_PW),
+                None => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_EMAIL_OR_PW),
                 Some(user) => {
                     // Do the registration
                     match verify_password_from_params(hashmap, &user) {
-                        false => encode_error_msg(status::Unauthorized, INVALID_EMAIL_OR_PW),
-                        true  => encode_user_jwt(&user),
+                        false => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_EMAIL_OR_PW),
+                        true  => encode_user_jwt(&state, &user),
                     }
                 }
             }
         }
     };
-    Ok(Response::with(res))
+    (state,response)
 }
 fn verify_password_from_params(hashmap: &Value, user: &User) -> bool {
     let password = hashmap.get(&"password".to_string()).unwrap();

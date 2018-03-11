@@ -1,8 +1,11 @@
-use iron::status;
-use iron::prelude::*;
 use chrono::{Duration};
 use serde_json;
 use serde_json::value::Value;
+
+use mime;
+use hyper::{StatusCode,Response};
+use gotham::state::State;
+use gotham::http::response::create_response;
 
 use super::timestamp::ZuluTimestamp;
 use super::pagination::{PaginationToken};
@@ -16,8 +19,7 @@ use api::{
 //    encode_error_msg,
     load_json_req_body,
     get_current_user_uuid,
-    get_user_agent,
-    ResultWithErrorResponse
+    get_user_agent
 };
 
 use super::{
@@ -28,20 +30,20 @@ use super::{
 
 use util::current_time;
 
-pub fn sync(req: &mut Request) -> IronResult<Response> {
+pub fn sync(mut state: State) -> (State, Response) {
     let conn = get_connection().expect("Unable to get db connection.");
-    let response = match do_sync(req, &conn) {
+    let response = match do_sync(&mut state, &conn) {
         Err(error_msg) => error_msg,
         Ok(response) => response
     };
     info!("sync response: {:?}", response);
-    Ok(Response::with(response))
+    (state, response)
 }
-fn do_sync(req: &mut Request, conn: &DbConnection) -> ResultWithErrorResponse<(status::Status, String)> {
-    let user_uuid   = get_current_user_uuid(req, conn)?;
-    let user_agent  = get_user_agent(req)?;
-    let items       = get_sync_items(req);
-    let sync_params = get_sync_params(req);
+fn do_sync(mut state: &mut State, conn: &DbConnection) -> Result<Response,Response> {
+    let user_uuid   = get_current_user_uuid(&state, conn)?;
+    let user_agent  = get_user_agent(&state);
+    let items       = get_sync_items(&mut state);
+    let sync_params = get_sync_params(&mut state);
     info!("User attempting sync, {}, via user agent, '{}'.", user_uuid, user_agent);
 
     let (retrieved_items, cursor_token) = do_sync_get(&user_uuid, sync_params, conn);
@@ -51,17 +53,19 @@ fn do_sync(req: &mut Request, conn: &DbConnection) -> ResultWithErrorResponse<(s
     let last_updated = current_time() + Duration::microseconds(1);
     let sync_token = PaginationToken::from_datetime(last_updated);
 
-    Ok((status::Ok, serde_json::to_string(&SyncResponse {
+    let content = serde_json::to_vec(&SyncResponse {
         retrieved_items,
         saved_items,
         unsaved,
         sync_token,
         cursor_token
-    }).unwrap_or(FULL_FAILURE_RESPONSE.to_string())))
+    }).unwrap_or(FULL_FAILURE_RESPONSE.as_bytes().to_vec());
+    let body = (content, mime::APPLICATION_JSON);
+    Ok(create_response(&state, StatusCode::Ok, Some(body)))
 }
 
-fn get_sync_items(req: &mut Request) -> Vec<MinimalItem> {
-    match load_json_req_body(req) {
+fn get_sync_items(mut state: &mut State) -> Vec<MinimalItem> {
+    match load_json_req_body(&mut state) {
         Err(_) => vec![],
         Ok(ref hashmap) => {
             info!("SYNC BODY: {:?}",hashmap);
@@ -89,8 +93,8 @@ fn get_sync_items(req: &mut Request) -> Vec<MinimalItem> {
 
 
 /// in_sync_token, in_cursor_token, in_limit
-fn get_sync_params(req: &mut Request) -> (Option<PaginationToken>,Option<PaginationToken>,i64) {
-    match load_json_req_body(req) {
+fn get_sync_params(mut state: &mut State) -> (Option<PaginationToken>,Option<PaginationToken>,i64) {
+    match load_json_req_body(&mut state) {
         Err(_) => (None,None,DEFAULT_LIMIT),
         Ok(ref hashmap) => {
             let in_sync_token = unwrap_decode(hashmap.get("sync_token"));

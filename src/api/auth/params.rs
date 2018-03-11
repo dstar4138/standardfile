@@ -1,34 +1,28 @@
-use iron::prelude::*;
-use iron::status;
-use urlencoded::UrlEncodedQuery;
-use serde_json;
-
+use mime;
 use pwdetails;
-use db::{get_connection,StandardFileStorage};
+use serde_json;
+use hyper::{StatusCode,Response};
+use gotham::state::{FromState, State};
+use gotham::http::response::create_response;
 
-use api::{ERROR_MISSINGEMAIL,encode_error_msg};
+use db::{get_connection,StandardFileStorage};
+use api::{ERROR_MISSINGEMAIL,encode_error_msg,QueryStringExtractor};
+
 use super::to_valid_email;
 
-/**
- * Return the parameters used for password generation.
- *   If user exists, return saved parameters, otherwise generate.
- **/
-pub fn params(req: &mut Request) -> IronResult<Response> {
-    let res = match req.get_ref::<UrlEncodedQuery>() {
-        Err(_) => encode_error_msg(status::BadRequest,ERROR_MISSINGEMAIL),
-        Ok(ref hashmap) => {
-            let params = hashmap.get(&"email".to_string()).unwrap();
-            let val = params.first().unwrap();
-            match to_valid_email(val) {
-                None => encode_error_msg(status::BadRequest,ERROR_MISSINGEMAIL),
-                Some(email) => {
-                    let pwmap = get_user_pw_details_or_default(&email);
-                    (status::Ok, serde_json::to_string(&pwmap).unwrap())
-                }
-            }
+pub fn params(mut state: State) -> (State, Response) {
+    let query_param = QueryStringExtractor::take_from(&mut state);
+    let response = match to_valid_email(&query_param.email) {
+        None =>
+            encode_error_msg(&state, StatusCode::BadRequest, ERROR_MISSINGEMAIL),
+        Some(email) => {
+            let pwmap = get_user_pw_details_or_default(&email);
+            let content = serde_json::to_vec(&pwmap).unwrap();
+            let body = (content, mime::APPLICATION_JSON);
+            create_response(&state, StatusCode::Ok, Some(body))
         }
     };
-    Ok(Response::with(res))
+    (state, response)
 }
 fn get_user_pw_details_or_default(email: &String) -> pwdetails::PasswordDetails {
     let conn = get_connection().expect("Unable to get db connection.");

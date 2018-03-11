@@ -1,10 +1,12 @@
-use iron::prelude::*;
-use iron::status;
-
 use db::{get_connection,StandardFileStorage};
 use pwdetails;
 use models::{User};
 use serde_json::Value;
+
+use hyper::{StatusCode,Response};
+use gotham::state::State;
+use gotham::http::response::create_response;
+
 use api::{
     INVALID_CREDENTIALS,
     encode_error_msg,
@@ -12,35 +14,32 @@ use api::{
     get_current_user_uuid
 };
 
-/**
- *
- */
-pub fn update(req: &mut Request) -> IronResult<Response> {
+pub fn update(mut state: State) -> (State,Response) {
     let conn = get_connection().expect("Unable to get db connection");
-    let res = match get_current_user_uuid(req, &conn) {
+    let response = match get_current_user_uuid(&state, &conn) {
         Err(err_msg) => err_msg,
-        Ok(user_uuid) => match load_json_req_body(req) {
-            Err(_) => encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS),
+        Ok(user_uuid) => match load_json_req_body(&mut state) {
+            Err(_) => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_CREDENTIALS),
             Ok(ref hashmap) => {
                 info!("update: {:?}", hashmap);
                 match conn.find_user_by_uuid(&user_uuid) {
-                    None => encode_error_msg(status::Unauthorized, INVALID_CREDENTIALS),
+                    None => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_CREDENTIALS),
                     Some(user) => {
-                        let updated_user = update_pw_params(hashmap, user)?;
+                        let updated_user = update_pw_params(hashmap, user);
                         conn.update_user(updated_user);
-                        (status::NoContent, String::new())
+                        create_response(&state, StatusCode::NoContent, None)
                     }
                 }
             }
         }
     };
-    Ok(Response::with(res))
+    (state,response)
 }
 
-fn update_pw_params(hashmap : &Value, user: User) -> Result<User,IronError> {
+fn update_pw_params(hashmap : &Value, user: User) -> User {
     let defaults = pwdetails::get_pw_details(&user);
     let pw_params = lift_pw_params(hashmap,defaults);
-    Ok(User {
+    User {
         pw_func:     pw_params.pw_func.clone(),
         pw_alg:      pw_params.pw_alg.clone(),
         pw_cost:     pw_params.pw_cost.clone(),
@@ -49,7 +48,7 @@ fn update_pw_params(hashmap : &Value, user: User) -> Result<User,IronError> {
         pw_salt:     pw_params.pw_salt.clone(),
         version:     pw_params.version.clone(),
         ..user
-    })
+    }
 }
 fn lift_pw_params(hashmap: &Value, default_pwd: pwdetails::PasswordDetails) -> pwdetails::PasswordDetails {
     pwdetails::PasswordDetails {

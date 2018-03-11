@@ -1,9 +1,6 @@
 #[macro_use(crate_version)]
 extern crate clap;
 
-#[macro_use(router)]
-extern crate router;
-
 #[macro_use]
 extern crate serde_derive;
 
@@ -16,18 +13,22 @@ extern crate diesel;
 #[macro_use]
 extern crate log;
 
+#[macro_use]
+extern crate gotham_derive;
+extern crate gotham;
+extern crate futures;
+extern crate hyper;
+extern crate mime;
+
 extern crate serde;
 extern crate base64;
 extern crate bcrypt;
 extern crate chrono;
 extern crate crypto;
 extern crate dotenv;
-extern crate iron;
 extern crate uuid;
 extern crate env_logger;
 extern crate rustc_serialize;
-extern crate urlencoded;
-extern crate bodyparser;
 extern crate jsonwebtoken as jwt;
 
 pub mod db;

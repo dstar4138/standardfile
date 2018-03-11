@@ -13,13 +13,17 @@ pub use self::update::update;
 
 use tokens;
 use models::{User};
-use iron::status;
 use serde_json::Value;
 use serde_json;
 use db::{get_connection,StandardFileStorage};
 
+use mime;
+use hyper::{StatusCode,Response};
+use gotham::state::State;
+use gotham::http::response::create_response;
+
 #[derive(Serialize, Deserialize)]
-struct MinimalUser{
+struct MinimalUser {
     uuid: String,
     email: String,
 }
@@ -29,7 +33,7 @@ struct JwtMsg {
     token: String,
 }
 
-fn encode_user_jwt(user: &User) -> (status::Status, String) {
+fn encode_user_jwt(state: &State, user: &User) -> Response{
     let user_jwt = JwtMsg {
         user: MinimalUser {
             uuid: user.uuid.clone(),
@@ -37,7 +41,8 @@ fn encode_user_jwt(user: &User) -> (status::Status, String) {
         },
         token: tokens::user_to_jwt(&user).unwrap(),
     };
-    (status::Ok, serde_json::to_string(&user_jwt).unwrap())
+    let body = Some((serde_json::to_vec(&user_jwt).unwrap(),mime::APPLICATION_JSON));
+    create_response(state,StatusCode::Ok, body)
 }
 
 fn as_valid_email(potential_email: &Value) -> Option<String> {

@@ -1,7 +1,8 @@
-use iron::prelude::*;
-use iron::status;
 use bcrypt::{DEFAULT_COST,hash};
 use serde_json::Value;
+
+use hyper::{StatusCode,Response};
+use gotham::state::State;
 
 use db::{get_connection,StandardFileStorage};
 use users;
@@ -21,23 +22,23 @@ use super::{
 /**
  * Register a user and return a JWT.
  **/
-pub fn register(req: &mut Request) -> IronResult<Response> {
-    let res = match load_json_req_body(req) {
-        Err(_) => encode_error_msg(status::Unauthorized, UNABLE_TO_REGISTER),
+pub fn register(mut state: State) -> (State,Response) {
+    let response = match load_json_req_body(&mut state) {
+        Err(_) => encode_error_msg(&state, StatusCode::Unauthorized, UNABLE_TO_REGISTER),
         Ok(ref hashmap) => {
             match reqmap_to_existing_user(hashmap) {
-                Some(_) => encode_error_msg(status::Unauthorized, ALREADY_REGISTERED),
+                Some(_) => encode_error_msg(&state, StatusCode::Unauthorized, ALREADY_REGISTERED),
                 None => {
                     // Do the registration
                     match build_register_user_from_reqmap(hashmap) {
-                        Err(msg) => encode_error_msg(status::Unauthorized, msg.as_str()),
-                        Ok(newuser) => encode_user_jwt(&newuser),
+                        Err(msg) => encode_error_msg(&state, StatusCode::Unauthorized, msg.as_str()),
+                        Ok(newuser) => encode_user_jwt(&state, &newuser),
                     }
                 }
             }
         }
     };
-    Ok(Response::with(res))
+    (state, response)
 }
 fn build_register_user_from_reqmap(hashmap: &Value) -> Result<User, String> {
     // The following are REQUIRED params per the spec.
