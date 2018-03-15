@@ -1,17 +1,18 @@
 use bcrypt::{DEFAULT_COST,hash};
 use serde_json::Value;
 
-use hyper::{StatusCode,Response};
+use hyper::StatusCode;
 use gotham::state::State;
+use gotham::handler::HandlerFuture;
 
-use db::{get_connection,StandardFileStorage};
+use db::get_connection;
 use users;
 use pwdetails;
-use models::{User};
+use backend_core::models::{User};
 use api::{
     UNABLE_TO_REGISTER,ALREADY_REGISTERED,
     encode_error_msg,
-    load_json_req_body
+    with_json_body
 };
 use super::{
     encode_user_jwt,
@@ -22,23 +23,28 @@ use super::{
 /**
  * Register a user and return a JWT.
  **/
-pub fn register(mut state: State) -> (State,Response) {
-    let response = match load_json_req_body(&mut state) {
-        Err(_) => encode_error_msg(&state, StatusCode::Unauthorized, UNABLE_TO_REGISTER),
-        Ok(ref hashmap) => {
-            match reqmap_to_existing_user(hashmap) {
-                Some(_) => encode_error_msg(&state, StatusCode::Unauthorized, ALREADY_REGISTERED),
-                None => {
-                    // Do the registration
-                    match build_register_user_from_reqmap(hashmap) {
-                        Err(msg) => encode_error_msg(&state, StatusCode::Unauthorized, msg.as_str()),
-                        Ok(newuser) => encode_user_jwt(&state, &newuser),
+pub fn register(state: State) -> Box<HandlerFuture> {
+    println!("REGISTER: Request <=");
+    with_json_body(state, |mut state : &State, potential_hashmap| {
+        let response = match potential_hashmap {
+            Err(_) => encode_error_msg(state, StatusCode::Unauthorized, UNABLE_TO_REGISTER),
+            Ok(ref hashmap) => {
+                info!("REGISTER: Request <= {:?}", hashmap);
+                match reqmap_to_existing_user(hashmap) {
+                    Some(_) => encode_error_msg(state, StatusCode::Unauthorized, ALREADY_REGISTERED),
+                    None => {
+                        // Do the registration
+                        match build_register_user_from_reqmap(hashmap) {
+                            Err(msg) => encode_error_msg(state, StatusCode::Unauthorized, msg.as_str()),
+                            Ok(newuser) => encode_user_jwt(state, &newuser),
+                        }
                     }
                 }
             }
-        }
-    };
-    (state, response)
+        };
+        print!("REGISTER: Response => {:?}", response);
+        response
+    })
 }
 fn build_register_user_from_reqmap(hashmap: &Value) -> Result<User, String> {
     // The following are REQUIRED params per the spec.

@@ -6,18 +6,19 @@ use mime;
 use hyper::{StatusCode,Response};
 use gotham::state::State;
 use gotham::http::response::create_response;
+use gotham::handler::HandlerFuture;
 
 use super::timestamp::ZuluTimestamp;
 use super::pagination::{PaginationToken};
-use db::{get_connection,DbConnection,StandardFileStorage};
-use models::Item;
+use db::{get_connection,StandardFileStorage};
+use backend_core::models::Item;
 
 static DEFAULT_LIMIT : i64 = 100_000;
 static FULL_FAILURE_RESPONSE : &'static str = "{}";
 
 use api::{
 //    encode_error_msg,
-    load_json_req_body,
+    with_json_body,
     get_current_user_uuid,
     get_user_agent
 };
@@ -30,20 +31,23 @@ use super::{
 
 use util::current_time;
 
-pub fn sync(mut state: State) -> (State, Response) {
-    let conn = get_connection().expect("Unable to get db connection.");
-    let response = match do_sync(&mut state, &conn) {
-        Err(error_msg) => error_msg,
-        Ok(response) => response
-    };
-    info!("sync response: {:?}", response);
-    (state, response)
+pub fn sync(mut state: State) -> Box<HandlerFuture> {
+    println!("SYNC: Request <=");
+    with_json_body(state, |mut state: &State, potential_hashmap| {
+        let conn = get_connection().expect("Unable to get db connection.");
+        let response = match do_sync(state, &potential_hashmap, &conn) {
+            Err(error_msg) => error_msg,
+            Ok(response) => response
+        };
+        println!("SYNC: Response => {:?}", response);
+        response
+    })
 }
-fn do_sync(mut state: &mut State, conn: &DbConnection) -> Result<Response,Response> {
+fn do_sync(mut state: &State, body: &Result<Value,serde_json::Error>, conn: &Box<StandardFileStorage>) -> Result<Response,Response> {
     let user_uuid   = get_current_user_uuid(&state, conn)?;
     let user_agent  = get_user_agent(&state);
-    let items       = get_sync_items(&mut state);
-    let sync_params = get_sync_params(&mut state);
+    let items       = get_sync_items(body);
+    let sync_params = get_sync_params(body);
     info!("User attempting sync, {}, via user agent, '{}'.", user_uuid, user_agent);
 
     let (retrieved_items, cursor_token) = do_sync_get(&user_uuid, sync_params, conn);
@@ -64,10 +68,10 @@ fn do_sync(mut state: &mut State, conn: &DbConnection) -> Result<Response,Respon
     Ok(create_response(&state, StatusCode::Ok, Some(body)))
 }
 
-fn get_sync_items(mut state: &mut State) -> Vec<MinimalItem> {
-    match load_json_req_body(&mut state) {
-        Err(_) => vec![],
-        Ok(ref hashmap) => {
+fn get_sync_items(body: &Result<Value,serde_json::Error> ) -> Vec<MinimalItem> {
+    match body {
+        &Err(_) => vec![],
+        &Ok(ref hashmap) => {
             info!("SYNC BODY: {:?}",hashmap);
             match hashmap.get("items") {
                 None => vec![],
@@ -93,10 +97,10 @@ fn get_sync_items(mut state: &mut State) -> Vec<MinimalItem> {
 
 
 /// in_sync_token, in_cursor_token, in_limit
-fn get_sync_params(mut state: &mut State) -> (Option<PaginationToken>,Option<PaginationToken>,i64) {
-    match load_json_req_body(&mut state) {
-        Err(_) => (None,None,DEFAULT_LIMIT),
-        Ok(ref hashmap) => {
+fn get_sync_params(body: &Result<Value,serde_json::Error>) -> (Option<PaginationToken>,Option<PaginationToken>,i64) {
+    match body {
+        &Err(_) => (None,None,DEFAULT_LIMIT),
+        &Ok(ref hashmap) => {
             let in_sync_token = unwrap_decode(hashmap.get("sync_token"));
             let in_cursor_token = unwrap_decode(hashmap.get("cursor_token"));
             match hashmap.get("limit") {
@@ -117,7 +121,7 @@ fn unwrap_decode(val: Option<&Value>) -> Option<PaginationToken> {
     }
 }
 
-fn do_sync_get(user_uuid:&String, sync_params: (Option<PaginationToken>,Option<PaginationToken>,i64), conn: &DbConnection) -> (Vec<MinimalItem>,Option<PaginationToken>) {
+fn do_sync_get(user_uuid:&String, sync_params: (Option<PaginationToken>,Option<PaginationToken>,i64), conn: &Box<StandardFileStorage>) -> (Vec<MinimalItem>,Option<PaginationToken>) {
     let (in_sync_token, in_cursor_token, limit) = sync_params;
     let optional_items = match (in_cursor_token, in_sync_token) {
         (None,Some(sync_token)) => {
@@ -198,7 +202,7 @@ fn unwrap(val : Vec<Result<Item,Item>>) -> Vec<MinimalItem> {
         .map(|&ref item: &Item | minify_item(item))
         .collect()
 }
-fn do_sync_save(user_uuid:&String, items: Vec<MinimalItem>, user_agent: &String, conn: &DbConnection) -> (Vec<MinimalItem>, Vec<MinimalItem>) {
+fn do_sync_save(user_uuid:&String, items: Vec<MinimalItem>, user_agent: &String, conn: &Box<StandardFileStorage>) -> (Vec<MinimalItem>, Vec<MinimalItem>) {
     let (saved_items, unsaved_items) = items
         .iter()
         .map(|&ref item: &MinimalItem| maximize_item(user_uuid, user_agent,item))

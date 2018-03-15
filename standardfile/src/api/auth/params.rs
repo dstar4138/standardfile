@@ -5,12 +5,17 @@ use hyper::{StatusCode,Response};
 use gotham::state::{FromState, State};
 use gotham::http::response::create_response;
 
-use db::{get_connection,StandardFileStorage};
-use api::{ERROR_MISSINGEMAIL,encode_error_msg,QueryStringExtractor};
+use db::get_connection;
+use api::{
+    ERROR_MISSINGEMAIL,
+    encode_error_msg,
+    QueryStringExtractor
+};
 
 use super::to_valid_email;
 
 pub fn params(mut state: State) -> (State, Response) {
+    println!("PARAMS: Request <=");
     let query_param = QueryStringExtractor::take_from(&mut state);
     let response = match to_valid_email(&query_param.email) {
         None =>
@@ -22,6 +27,7 @@ pub fn params(mut state: State) -> (State, Response) {
             create_response(&state, StatusCode::Ok, Some(body))
         }
     };
+    println!("PARAMS: Response => {:?}", response);
     (state, response)
 }
 fn get_user_pw_details_or_default(email: &String) -> pwdetails::PasswordDetails {

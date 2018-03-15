@@ -8,9 +8,6 @@ extern crate serde_derive;
 extern crate serde_json;
 
 #[macro_use]
-extern crate diesel;
-
-#[macro_use]
 extern crate log;
 
 #[macro_use]
@@ -31,11 +28,15 @@ extern crate env_logger;
 extern crate rustc_serialize;
 extern crate jsonwebtoken as jwt;
 
+extern crate backend_core;
+#[cfg(feature = "sqlite")]
+extern crate backend_sqlite;
+#[cfg(feature = "mysql")]
+extern crate backend_mysql;
+
 pub mod db;
 pub mod env;
 pub mod items;
-pub mod models;
-pub mod schema;
 pub mod service;
 pub mod users;
 pub mod pwdetails;

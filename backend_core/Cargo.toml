@@ -1,0 +1,13 @@
+[package]
+name = "backend_core"
+version = "0.1.0"
+authors = ["Alexander Dean <dstar@slackless.com>"]
+description = "The backend definition for the rust standardfile server."
+readme = "README.md"
+license = "GPL-3.0"
+keywords = ["notes","server","standardfile","self","hosted"]
+workspace = ".."
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde", "rustc-serialize"] }
+diesel = { version = "1.1", features = ["chrono", "extras"] }

@@ -1,23 +1,12 @@
-mod sqlite;
-pub use self::sqlite::*;
+#[macro_use]
+extern crate diesel;
+extern crate chrono;
 
-use env;
-use diesel;
-use diesel::prelude::*;
+pub mod models;
+pub mod schema;
 
-use models::{User, Item};
 use chrono::NaiveDateTime;
-
-pub enum DbConnection {
-  Sqlite { conn: SqliteConnection }
-}
-
-//TODO: override with selected database type.
-pub fn get_connection() -> Result<DbConnection, ConnectionError> {
-    let path = env::get_database_path();
-    let conn = diesel::SqliteConnection::establish(&path)?;
-    Ok( DbConnection::Sqlite {conn} )
-}
+pub use models::{User,Item};
 
 pub trait StandardFileStorage {
     fn add_user(&self, user: &User) -> ();

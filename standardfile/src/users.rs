@@ -1,5 +1,5 @@
 use util;
-use models::User;
+use backend_core::models::User;
 use pwdetails::PasswordDetails;
 
 pub fn create_new(

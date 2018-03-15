@@ -1,5 +1,5 @@
 use util;
-use models::Item;
+use backend_core::models::Item;
 
 pub fn create_new( user_uuid   : String,
                    content     : String, 

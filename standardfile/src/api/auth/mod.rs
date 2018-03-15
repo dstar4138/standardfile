@@ -12,10 +12,10 @@ pub use self::change_pw::change_pw;
 pub use self::update::update;
 
 use tokens;
-use models::{User};
+use backend_core::models::{User};
 use serde_json::Value;
 use serde_json;
-use db::{get_connection,StandardFileStorage};
+use db::{get_connection};
 
 use mime;
 use hyper::{StatusCode,Response};

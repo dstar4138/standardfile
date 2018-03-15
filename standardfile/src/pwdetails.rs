@@ -1,6 +1,6 @@
 use env;
 use util;
-use models::{User};
+use backend_core::models::{User};
 
 #[derive(Serialize,Deserialize,Debug,PartialEq,Eq)]
 pub struct PasswordDetails {

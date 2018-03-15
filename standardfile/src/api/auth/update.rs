@@ -1,51 +1,44 @@
-use db::{get_connection,StandardFileStorage};
+use db::{get_connection};
 use pwdetails;
-use models::{User};
-use bcrypt::{DEFAULT_COST, hash};
+use backend_core::models::{User};
 use serde_json::Value;
 
-use hyper::{StatusCode,Response};
+use hyper::StatusCode;
 use gotham::state::State;
+use gotham::handler::HandlerFuture;
 use gotham::http::response::create_response;
 
 use api::{
     INVALID_CREDENTIALS,
     encode_error_msg,
-    load_json_req_body,
+    with_json_body,
     get_current_user_uuid
 };
 
-
-pub fn change_pw(mut state: State) -> (State, Response) {
-    let conn = get_connection().expect("Unable to get db conn.");
-    let response = match get_current_user_uuid(&state, &conn) {
-        Err(err_msg) => err_msg,
-        Ok(user_uuid) => match load_json_req_body(&mut state) {
-            Err(_) => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_CREDENTIALS),
-            Ok(ref hashmap) => {
-                info!("change pw: {:?}", hashmap);
-                match conn.find_user_by_uuid(&user_uuid) {
-                    None => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_CREDENTIALS),
-                    Some(user) => {
-                        match hashmap.get("new_password") {
-                            None =>  encode_error_msg(&state, StatusCode::BadRequest, &format!("Missing parameter {}", "new_password")),
-                            Some(val) => {
-                                let new_pass = val.as_str().unwrap();
-                                let new_pass_hash = hash(new_pass, DEFAULT_COST).unwrap();
-                                let updated_user = update_pw_params(hashmap, User {
-                                    encrypted_password: new_pass_hash,
-                                    ..user
-                                });
-                                conn.update_user(updated_user);
-                                create_response(&state, StatusCode::NoContent, None)
-                            }
+pub fn update(state: State) -> Box<HandlerFuture> {
+    println!("UPDATE: Request <=");
+    with_json_body(state, |mut state: &State, potential_hashmap| {
+        let conn = get_connection().expect("Unable to get db connection");
+        let response = match get_current_user_uuid(&state, &conn) {
+            Err(err_msg) => err_msg,
+            Ok(user_uuid) => match potential_hashmap {
+                Err(_) => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_CREDENTIALS),
+                Ok(ref hashmap) => {
+                    info!("update: {:?}", hashmap);
+                    match conn.find_user_by_uuid(&user_uuid) {
+                        None => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_CREDENTIALS),
+                        Some(user) => {
+                            let updated_user = update_pw_params(hashmap, user);
+                            conn.update_user(updated_user);
+                            create_response(&state, StatusCode::NoContent, None)
                         }
                     }
                 }
             }
-        }
-    };
-    (state,response)
+        };
+        println!("UPDATE: Response => {:?}", response);
+        response
+    })
 }
 
 fn update_pw_params(hashmap : &Value, user: User) -> User {

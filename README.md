@@ -16,7 +16,7 @@ This will be a mess. Please save me.
 
 - Backend Datastore
   - [X] SQLite
-  - [ ] MySQL _(TODO to allow drop-in replacement)_
+  - [X] MySQL 
 - API v0.0.2
   - [X] POST /auth
   - [X] POST /auth/sign_in
@@ -27,9 +27,27 @@ This will be a mess. Please save me.
 
 ### Usage:
 
-To test out:
+To test out with a simple sqlite db:
 
 ```
-$ make run
+$ cat .env
+export DB_PATH=localite.db
+export SALT_PSEUDO_NONCE=123
+export SECRET_KEY_BASE=111111111111111
+$ source .env && make run
+```
+
+To try it out with mysql:
+
+```
+$ cat .env
+export DB_DATABASE=standardfile
+export DB_HOST=localhost
+export DB_PORT=3306
+export DB_USERNAME=stdfile
+export DB_PASSWORD=abc
+export SALT_PSEUDO_NONCE=123
+export SECRET_KEY_BASE=111111111111111
+$ source .env && make run-mysql
 ```
 

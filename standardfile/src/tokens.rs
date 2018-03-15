@@ -4,7 +4,7 @@ use jwt::{Algorithm,Validation,Header,encode,decode};
 use jwt::errors::Error;
 
 use env;
-use models::User;
+use backend_core::models::User;
 
 // Claims found here:
 // https://github.com/standardfile/rails-engine/blob/ad43d5761c01b4a3eba00d525c9a76a051491d27/lib/standard_file/user_manager.rb#L79

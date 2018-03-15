@@ -6,13 +6,14 @@ use serde_json::Value;
 use tokens;
 
 use mime;
-use futures::{Future, Stream};
+use futures::{future, Future, Stream};
 use hyper::{Body,Headers,StatusCode,Response};
 use hyper::header::{UserAgent, Authorization, Bearer};
 use gotham::state::{FromState,State};
+use gotham::handler::{HandlerFuture, IntoHandlerError, HandlerError};
 use gotham::http::response::create_response;
 
-use db::{DbConnection,StandardFileStorage};
+use db::StandardFileStorage;
 
 static ERROR_MISSINGEMAIL: &'static str = "Please provide email via GET paramater.";
 static UNABLE_TO_REGISTER: &'static str = "Unable to register.";
@@ -46,16 +47,26 @@ fn encode_error_msg(state: &State, status: StatusCode, error: &str) -> Response 
     create_response(state, status, Some(body))
 }
 
-fn load_json_req_body(state: &mut State) -> Result<Value,()> {
-    match Body::take_from(state).concat2().map(
-        |full_body| {
-                let body_content = String::from_utf8(full_body.to_vec()).unwrap();
-                serde_json::to_value(body_content)
-            }).wait() {
-        Ok(Ok(json_body)) => Ok(json_body),
-        Ok(Err(_)) => Err(()),
-        Err(_) => Err(())
-    }
+fn with_json_body<F>(mut state: State, continuation: F) -> Box<HandlerFuture>
+    where F: 'static,
+          F: FnOnce(&State, Result<Value,serde_json::Error>) -> Response
+{
+    let f = Body::take_from(&mut state).concat2().then(
+        |full_body| match full_body {
+            Ok(valid_body) => {
+                match String::from_utf8(valid_body.to_vec()) {
+                    Ok(body_content) => {
+                        let potential_hashmap = serde_json::from_str(body_content.as_str());
+                        let response = continuation(&state, potential_hashmap);
+                        future::ok((state, response))
+                    },
+                    Err(e) => future::err((state, e.into_handler_error()))
+                }
+            },
+            Err(e) => future::err((state, e.into_handler_error()))
+
+        });
+    Box::new(f)
 }
 
 fn get_user_agent(state: &State) -> String {
@@ -65,7 +76,7 @@ fn get_user_agent(state: &State) -> String {
     }
 }
 
-fn get_current_user_uuid(state: &State, conn: &DbConnection) -> Result<String,Response> {
+fn get_current_user_uuid(state: &State, conn: &Box<StandardFileStorage>) -> Result<String,Response> {
     match Headers::borrow_from(state).get::<Authorization<Bearer>>() {
         None => Err(encode_error_msg(state,StatusCode::Unauthorized, INVALID_CREDENTIALS)),
         Some(ref auth_token) => {
