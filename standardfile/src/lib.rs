@@ -2,9 +2,10 @@
 extern crate clap;
 
 #[macro_use]
-extern crate serde_derive;
+extern crate cfg_if;
 
 #[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
 
 #[macro_use]
@@ -29,9 +30,7 @@ extern crate rustc_serialize;
 extern crate jsonwebtoken as jwt;
 
 extern crate backend_core;
-#[cfg(feature = "sqlite")]
 extern crate backend_sqlite;
-#[cfg(feature = "mysql")]
 extern crate backend_mysql;
 
 pub mod db;

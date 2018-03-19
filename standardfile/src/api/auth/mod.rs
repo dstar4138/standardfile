@@ -16,6 +16,7 @@ use backend_core::models::{User};
 use serde_json::Value;
 use serde_json;
 use db::{get_connection};
+use pwdetails;
 
 use mime;
 use hyper::{StatusCode,Response};
@@ -62,11 +63,37 @@ fn to_valid_email(potential_email: &String) -> Option<String> {
 }
 
 fn reqmap_to_existing_user(hashmap: &Value) -> Option<User> {
-   match as_valid_email(hashmap.get(&"email".to_string()).unwrap()) {
-       None => None,
-       Some(email) => {
-           let conn = get_connection().expect("Unable to get db conn.");
-           conn.find_user_by_email(&email)
-       }
-   }
+    match as_valid_email(hashmap.get(&"email".to_string()).unwrap()) {
+        None => None,
+        Some(email) => {
+            let conn = get_connection().expect("Unable to get db conn.");
+            conn.find_user_by_email(&email)
+        }
+    }
+}
+
+fn get_pw_params(hashmap: &Value, default_pwd: pwdetails::PasswordDetails) -> pwdetails::PasswordDetails {
+    let mut updated = pwdetails::PasswordDetails { ..default_pwd };
+    if hashmap.get("pw_func").is_some() {
+        updated.pw_func = Some(hashmap.get("pw_func").unwrap().as_str().unwrap().to_string());
+    }
+    if hashmap.get("pw_alg").is_some() {
+        updated.pw_alg = Some(hashmap.get("pw_alg").unwrap().as_str().unwrap().to_string());
+    }
+    if hashmap.get("pw_cost").is_some() {
+        updated.pw_cost = Some(hashmap.get("pw_cost").unwrap().as_i64().unwrap() as i32);
+    }
+    if hashmap.get("pw_key_size").is_some() {
+        updated.pw_key_size = Some(hashmap.get("pw_key_size").unwrap().as_i64().unwrap() as i32);
+    }
+    if hashmap.get("pw_nonce").is_some() {
+        updated.pw_nonce = Some(hashmap.get("pw_nonce").unwrap().as_str().unwrap().to_string());
+    }
+    if hashmap.get("pw_salt").is_some() {
+        updated.pw_salt = Some(hashmap.get("pw_salt").unwrap().as_str().unwrap().to_string());
+    }
+    if hashmap.get("version").is_some() {
+        updated.version = Some(hashmap.get("version").unwrap().as_str().unwrap().to_string());
+    }
+    updated
 }

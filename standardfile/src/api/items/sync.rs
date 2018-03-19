@@ -31,24 +31,24 @@ use super::{
 
 use util::current_time;
 
-pub fn sync(mut state: State) -> Box<HandlerFuture> {
-    println!("SYNC: Request <=");
-    with_json_body(state, |mut state: &State, potential_hashmap| {
+pub fn sync(state: State) -> Box<HandlerFuture> {
+    info!("Request <=");
+    with_json_body(state, |state: &State, potential_hashmap| {
         let conn = get_connection().expect("Unable to get db connection.");
         let response = match do_sync(state, &potential_hashmap, &conn) {
             Err(error_msg) => error_msg,
             Ok(response) => response
         };
-        println!("SYNC: Response => {:?}", response);
+        info!("Response => {:?}", response);
         response
     })
 }
-fn do_sync(mut state: &State, body: &Result<Value,serde_json::Error>, conn: &Box<StandardFileStorage>) -> Result<Response,Response> {
+fn do_sync(state: &State, body: &Result<Value,serde_json::Error>, conn: &Box<StandardFileStorage>) -> Result<Response,Response> {
     let user_uuid   = get_current_user_uuid(&state, conn)?;
     let user_agent  = get_user_agent(&state);
     let items       = get_sync_items(body);
     let sync_params = get_sync_params(body);
-    info!("User attempting sync, {}, via user agent, '{}'.", user_uuid, user_agent);
+    debug!("User attempting sync, {}, via user agent, '{}'.", user_uuid, user_agent);
 
     let (retrieved_items, cursor_token) = do_sync_get(&user_uuid, sync_params, conn);
     let (saved_items, unsaved)          = do_sync_save(&user_uuid, items, &user_agent, conn);
@@ -72,11 +72,11 @@ fn get_sync_items(body: &Result<Value,serde_json::Error> ) -> Vec<MinimalItem> {
     match body {
         &Err(_) => vec![],
         &Ok(ref hashmap) => {
-            info!("SYNC BODY: {:?}",hashmap);
+            debug!("SYNC BODY: {:?}",hashmap);
             match hashmap.get("items") {
                 None => vec![],
                 Some(in_items) => {
-                    info!("SYNC ITEMS: {:?}", in_items);
+                    debug!("SYNC ITEMS: {:?}", in_items);
                     let values:Vec<Value> = in_items.as_array().unwrap().to_vec();
                     values.iter().map(
                         |val: &Value| {
@@ -107,7 +107,7 @@ fn get_sync_params(body: &Result<Value,serde_json::Error>) -> (Option<Pagination
                 None => (in_sync_token, in_cursor_token, DEFAULT_LIMIT),
                 Some(v) => {
                     let limit = v.as_i64().unwrap_or(DEFAULT_LIMIT);
-                    info!("SYNC(sync_token='{:?}',cursor_token='{:?}',limit={})",in_sync_token,in_cursor_token,limit);
+                    debug!("SYNC(sync_token='{:?}',cursor_token='{:?}',limit={})",in_sync_token,in_cursor_token,limit);
                     (in_sync_token, in_cursor_token, limit)
                 }
            }
@@ -126,12 +126,12 @@ fn do_sync_get(user_uuid:&String, sync_params: (Option<PaginationToken>,Option<P
     let optional_items = match (in_cursor_token, in_sync_token) {
         (None,Some(sync_token)) => {
             let datetime = sync_token.to_datetime();
-            info!("Using sync_token, {}",datetime);
+            debug!("Using sync_token, {}",datetime);
             conn.get_items_older_or_equal_to(&datetime, user_uuid, limit)
         },
         (Some(cursor_token), _) => {
             let datetime = cursor_token.to_datetime();
-            info!("Using cursor_token, {}", datetime);
+            debug!("Using cursor_token, {}", datetime);
             conn.get_items_older_than(&datetime, user_uuid, limit)
         },
         (None, None) => conn.get_items(user_uuid, limit)

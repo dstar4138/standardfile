@@ -10,7 +10,7 @@ use futures::{future, Future, Stream};
 use hyper::{Body,Headers,StatusCode,Response};
 use hyper::header::{UserAgent, Authorization, Bearer};
 use gotham::state::{FromState,State};
-use gotham::handler::{HandlerFuture, IntoHandlerError, HandlerError};
+use gotham::handler::{HandlerFuture, IntoHandlerError};
 use gotham::http::response::create_response;
 
 use db::StandardFileStorage;

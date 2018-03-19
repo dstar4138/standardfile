@@ -14,20 +14,6 @@ const DATABASE_DATABASE: &'static str = "DB_DATABASE";
 const DATABASE_USERNAME: &'static str = "DB_USERNAME";
 const DATABASE_PASSWORD: &'static str = "DB_PASSWORD";
 
-pub fn get_database_hostport() -> String {
-    let host = get_or_panic(DATABASE_HOST, "Can't locate database host!");
-    let port = get_or_panic(DATABASE_PORT, "Can't locate database port!");
-    format!("{}:{}",host,port)
-}
-pub fn get_database_name() -> String {
-    get_or_panic(DATABASE_DATABASE, "Can't locate database!")
-}
-pub fn get_database_creds() -> (String,String) {
-    let username = get_or_panic(DATABASE_USERNAME, "Can't locate database username!");
-    let password = get_or_panic(DATABASE_PASSWORD, "Can't locate database password!");
-    (username,password)
-}
-
 fn get_or_panic(key: &str, error: &str) -> String {
     match env::var(key) {
         Ok(val) => val.clone(),
@@ -35,11 +21,17 @@ fn get_or_panic(key: &str, error: &str) -> String {
     }
 }
 
+fn build_db_uri() -> String {
+    let host = get_or_panic(DATABASE_HOST, "Can't locate database host!");
+    let port = get_or_panic(DATABASE_PORT, "Can't locate database port!");
+    let db_name = get_or_panic(DATABASE_DATABASE, "Can't locate database!");
+    let username = get_or_panic(DATABASE_USERNAME, "Can't locate database username!");
+    let password = get_or_panic(DATABASE_PASSWORD, "Can't locate database password!");
+    format!("mysql://{}:{}@{}:{}/{}", username,password,host,port,db_name)
+}
+
 pub fn get_connection() -> Result<Box<StandardFileStorage>,ConnectionError> {
-    let host = get_database_hostport();
-    let (username, password) = get_database_creds();
-    let db_name = get_database_name();
-    let db_uri = format!("mysql://{}:{}@{}/{}", username,password,host,db_name);
+    let db_uri = build_db_uri();
     let conn = diesel::MysqlConnection::establish(&db_uri.as_str())?;
     Ok(Box::new(DbConnection { conn }))
 }
@@ -125,4 +117,22 @@ impl StandardFileStorage for DbConnection {
             .optional()
             .unwrap()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_build_db_uri_without_database_match_format() {
+        env::set_var(DATABASE_HOST,"a");
+        env::set_var(DATABASE_PORT,"b");
+        env::set_var(DATABASE_DATABASE,"c");
+        env::set_var(DATABASE_USERNAME,"d");
+        env::set_var(DATABASE_PASSWORD,"e");
+        let uri = build_db_uri();
+        assert_eq!("mysql://d:e@a:b/c", uri);
+    }
+
 }

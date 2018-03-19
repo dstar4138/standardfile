@@ -17,8 +17,8 @@ use super::{
 };
 
 pub fn sign_in(state: State) -> Box<HandlerFuture> {
-    println!("SIGN_IN: Request <=");
-    with_json_body(state, |mut state: &State, potential_hashmap| {
+    info!("Request <=");
+    with_json_body(state, |state: &State, potential_hashmap| {
         let response = match potential_hashmap {
             Err(_) => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_EMAIL_OR_PW),
             Ok(ref hashmap) => {
@@ -34,7 +34,7 @@ pub fn sign_in(state: State) -> Box<HandlerFuture> {
                 }
             }
         };
-        println!("SIGN_IN: Response => {:?}", response);
+        info!("Response => {:?}", response);
         response
     })
 }

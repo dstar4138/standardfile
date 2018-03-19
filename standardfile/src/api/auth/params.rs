@@ -1,5 +1,5 @@
 use mime;
-use pwdetails;
+use pwdetails::{PasswordDetails,HasPasswordDetails,new_pw_details};
 use serde_json;
 use hyper::{StatusCode,Response};
 use gotham::state::{FromState, State};
@@ -15,7 +15,7 @@ use api::{
 use super::to_valid_email;
 
 pub fn params(mut state: State) -> (State, Response) {
-    println!("PARAMS: Request <=");
+    info!("Request <=");
     let query_param = QueryStringExtractor::take_from(&mut state);
     let response = match to_valid_email(&query_param.email) {
         None =>
@@ -27,15 +27,13 @@ pub fn params(mut state: State) -> (State, Response) {
             create_response(&state, StatusCode::Ok, Some(body))
         }
     };
-    println!("PARAMS: Response => {:?}", response);
+    info!("Response => {:?}", response);
     (state, response)
 }
-fn get_user_pw_details_or_default(email: &String) -> pwdetails::PasswordDetails {
+fn get_user_pw_details_or_default(email: &String) -> PasswordDetails {
     let conn = get_connection().expect("Unable to get db connection.");
     match conn.find_user_by_email(email) {
-        None =>
-            pwdetails::new_pw_details(email),
-        Some(user) =>
-            pwdetails::get_pw_details(&user)
+        None => new_pw_details(email),
+        Some(user) => user.to_password_details()
     }
 }
