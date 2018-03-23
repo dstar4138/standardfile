@@ -50,4 +50,8 @@ export SALT_PSEUDO_NONCE=123
 export SECRET_KEY_BASE=111111111111111
 $ source .env && make run-mysql
 ```
+You could also just run it with docker/docker-compose:
 
+```
+$ docker-compose up --build
+```

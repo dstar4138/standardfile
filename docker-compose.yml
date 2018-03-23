@@ -1,0 +1,32 @@
+version: '2.1'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-standardfile
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: docker/environments/.env.app.dev
+    links:
+      - db
+    ports:
+      - "8080:8080"
+    networks:
+      - network
+  db:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile-db
+    networks:
+      - network
+    env_file: docker/environments/.env.db.dev
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:
+
+networks:
+  network:

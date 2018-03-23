@@ -1,0 +1,8 @@
+FROM mariadb:10.3
+MAINTAINER <dstar@slackless.com>
+
+ADD backend_mysql/migrations/2018-02-11-032341_create_tables/up.sql /docker-entrypoint-initdb.d/
+
+COPY docker/bins/docker-mariadb-healthcheck /usr/local/bin/
+
+HEALTHCHECK CMD ["docker-mariadb-healthcheck"]

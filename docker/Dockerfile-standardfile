@@ -1,0 +1,20 @@
+FROM rust:1.24
+MAINTAINER <dstar@slackless.com>
+RUN cargo install diesel_cli
+
+ENV DIR=/usr/src/standardfile
+WORKDIR $DIR
+COPY backend_core $DIR/backend_core
+COPY backend_sqlite $DIR/backend_sqlite
+COPY backend_mysql $DIR/backend_mysql
+COPY standardfile $DIR/standardfile
+COPY Cargo.toml $DIR
+COPY Cargo.lock $DIR
+
+RUN cargo build \
+    --manifest-path standardfile/Cargo.toml \
+    --features mysql \
+    --no-default-features \
+    --release
+
+CMD ["./target/release/standardfile"]
