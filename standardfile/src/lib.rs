@@ -30,8 +30,13 @@ extern crate rustc_serialize;
 extern crate jsonwebtoken as jwt;
 
 extern crate backend_core;
-extern crate backend_sqlite;
-extern crate backend_mysql;
+cfg_if! {
+    if #[cfg(feature = "mysql")] {
+        extern crate backend_mysql;
+    } else { // We default to using sqlite.
+        extern crate backend_sqlite;
+    }
+}
 
 pub mod db;
 pub mod env;
