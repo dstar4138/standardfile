@@ -137,13 +137,11 @@ fn do_sync_get(user_uuid:&String, sync_params: (Option<PaginationToken>,Option<P
         (None, None) => conn.get_items(user_uuid, limit)
     };
     let items = minify_items(optional_items);
-    let cursor_token = match items.last() {
-        None => None,
-        Some(last) => {
+    let cursor_token = items.last().map(|last| {
             let datetime = last.updated_at.to_datetime();
-            Some(PaginationToken::from_datetime(datetime))
+            PaginationToken::from_datetime(datetime)
         }
-    };
+    );
     (items,cursor_token)
 }
 fn minify_items(optional_items: Option<Vec<Item>>) -> Vec<MinimalItem> {
