@@ -43,6 +43,23 @@ impl Default for PasswordDetails {
     }
 }
 
+pub fn defaults(overrides: &PasswordDetails) -> PasswordDetails {
+    defaults_with_override(overrides, &PasswordDetails::default())
+}
+
+pub fn defaults_with_override(overrides: &PasswordDetails, defaults: &HasPasswordDetails) -> PasswordDetails {
+    PasswordDetails {
+        pw_func:  overrides.pw_func .clone().map_or(Some(defaults.get_pw_func()), id),
+        pw_alg:   overrides.pw_alg  .clone().map_or(Some(defaults.get_pw_alg()), id),
+        pw_cost:  overrides.pw_cost .clone().map_or(Some(defaults.get_pw_cost()), id),
+        pw_key_size: overrides.pw_key_size.clone().map_or(Some(defaults.get_pw_key_size()),id),
+        pw_nonce: overrides.pw_nonce.clone().map_or(Some(defaults.get_pw_nonce()), id),
+        pw_salt:  overrides.pw_salt .clone().map_or(Some(defaults.get_pw_salt()), id),
+        version:  overrides.version .clone().map_or(Some(defaults.get_version()), id)
+    }
+}
+fn id<T>(x:T) -> Option<T> { Some(x) }
+
 pub fn new_pw_details(email: &String) -> PasswordDetails {
     let salt = env::get_pseudo_salt();
     let default = PasswordDetails::default();

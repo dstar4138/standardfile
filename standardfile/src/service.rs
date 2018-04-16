@@ -1,47 +1,23 @@
 use api;
-use api::QueryStringExtractor;
+use actix_web::{header, Application, HttpMessage, HttpRequest, Method};
 
-use gotham::state::State;
-use gotham::router::Router;
-use gotham::router::builder::*;
-use hyper::{Response,StatusCode};
-
-static INDEX: &'static [u8] = b"For API, see https://standardfile.org";
-
-pub fn router() -> Router {
-    build_simple_router(|route| {
-        // INDEX ------------------------------------
-        route.get_or_head("/").to(index);
-
-        // AUTH -------------------------------------
-        route
-            .associate("/auth",|assoc| {
-                assoc.post().to(api::auth::register);
-                assoc.patch().to(api::auth::change_pw);
-            });
-        route
-            .get("/auth/params")
-            .with_query_string_extractor::<QueryStringExtractor>()
-            .to(api::auth::params);
-        route
-            .post("/auth/sign_in")
-            .to(api::auth::sign_in);
-        route
-            .post("/auth/change_pw")
-            .to(api::auth::change_pw);
-        route
-            .post("/auth/update")
-            .to(api::auth::update);
-
-        // ITEMS ------------------------------------
-        route
-            .post("/items/sync")
-            .to(api::items::sync);
-    })
+pub fn app() -> Application {
+    Application::new()
+        .resource("/", |r| r.f(index))
+        .resource( "/auth", |r| {
+            r.method(Method::POST).f(api::auth::register);
+            r.method(Method::PATCH).f(api::auth::change_pw);
+        })
+        .resource( "/auth/change_pw", |r| r.method(Method::POST).f(api::auth::change_pw))
+        .resource( "/auth/params",  |r| r.method(Method::GET).f(api::auth::params))
+        .resource( "/auth/sign_in", |r| r.method(Method::POST).f(api::auth::sign_in))
+        .resource( "/auth/update", |r| r.method(Method::POST).f(api::auth::update))
+        .resource( "/items/sync", |r| r.method(Method::POST).f(api::items::sync))
 }
 
-fn index(state: State) -> (State, Response) {
-    (state, Response::new()
-             .with_status(StatusCode::Ok)
-             .with_body(INDEX))
+static INDEX: &'static str = "For API, see https://standardfile.org";
+fn index(request: HttpRequest) -> &'static str {
+    info!("Request came in on '/', {:?}", request.headers().get(header::http::AUTHORIZATION));
+    INDEX
 }
+

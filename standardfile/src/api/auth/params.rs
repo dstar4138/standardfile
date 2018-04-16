@@ -1,36 +1,28 @@
-use mime;
 use pwdetails::{PasswordDetails,HasPasswordDetails,new_pw_details};
-use serde_json;
-use hyper::{StatusCode,Response};
-use gotham::state::{FromState, State};
-use gotham::http::response::create_response;
+use actix_web::{HttpRequest,StatusCode};
 
 use db::get_connection;
 use api::{
-    ERROR_MISSINGEMAIL,
-    encode_error_msg,
-    QueryStringExtractor
+    ERROR_MISSING_EMAIL,
+    ResultObj, ErrorCode,
+    return_err, return_ok
 };
-
 use super::to_valid_email;
 
-pub fn params(mut state: State) -> (State, Response) {
-    info!("Request <=");
-    let response =  match QueryStringExtractor::try_take_from(&mut state) {
-        None => encode_error_msg(&state, StatusCode::BadRequest, ERROR_MISSINGEMAIL),
-        Some(query_param) => match to_valid_email(&query_param.email) {
-            None =>
-                encode_error_msg(&state, StatusCode::BadRequest, ERROR_MISSINGEMAIL),
+// ERROR CODES
+const BAD_REQUEST: ErrorCode = ErrorCode(StatusCode::BAD_REQUEST, ERROR_MISSING_EMAIL);
+
+pub fn params(request: HttpRequest) -> ResultObj<PasswordDetails> {
+    match request.query().get("email") {
+        None => return_err(BAD_REQUEST),
+        Some(potential_email) => match to_valid_email(&potential_email.to_string()) {
+            None => return_err(BAD_REQUEST),
             Some(email) => {
-                let pwmap = get_user_pw_details_or_default(&email);
-                let content = serde_json::to_vec(&pwmap).unwrap();
-                let body = (content, mime::APPLICATION_JSON);
-                create_response(&state, StatusCode::Ok, Some(body))
+                info!("[User: {}]", email);
+                return_ok(get_user_pw_details_or_default(&email))
             }
         }
-    };
-    info!("Response => {:?}", response);
-    (state, response)
+    }
 }
 fn get_user_pw_details_or_default(email: &String) -> PasswordDetails {
     let conn = get_connection().expect("Unable to get db connection.");

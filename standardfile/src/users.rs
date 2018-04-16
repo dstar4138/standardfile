@@ -60,16 +60,3 @@ impl HasPasswordDetails for User {
         }
     }
 }
-
-/**
- * Non-mutable update.
- */
-pub fn update(new_pass: String, user: User) -> User {
-    use util;
-    let current_time = util::current_time();
-    User{
-        updated_at: current_time,
-        encrypted_password: new_pass,
-        ..user
-    }
-}

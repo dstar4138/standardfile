@@ -7,26 +7,21 @@ extern crate cfg_if;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate serde;
 
 #[macro_use]
 extern crate log;
+extern crate env_logger;
 
-#[macro_use]
-extern crate gotham_derive;
-extern crate gotham;
+extern crate actix_web;
 extern crate futures;
-extern crate hyper;
-extern crate mime;
 
-extern crate serde;
 extern crate base64;
 extern crate bcrypt;
 extern crate chrono;
 extern crate crypto;
 extern crate dotenv;
 extern crate uuid;
-extern crate env_logger;
-extern crate rustc_serialize;
 extern crate jsonwebtoken as jwt;
 
 extern crate backend_core;

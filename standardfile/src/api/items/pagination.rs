@@ -71,7 +71,7 @@ pub mod serde {
 
             let version = vec.get(0).unwrap().parse::<u32>().unwrap();
             let timestamp = vec.get(1).unwrap();
-            info!("Attempting to decode timestamp in token: v={}, t={}", version, timestamp);
+            debug!("Attempting to decode timestamp in token: v={}, t={}", version, timestamp);
             match version {
                 1 => match NaiveDateTime::parse_from_str(timestamp, TOKEN_FORMAT_V1) {
                     Err(e) => {

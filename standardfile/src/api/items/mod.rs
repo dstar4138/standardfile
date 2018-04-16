@@ -16,7 +16,17 @@ pub trait IsDateTime {
 }
 
 #[derive(Serialize, Deserialize)]
-struct SyncResponse {
+struct SyncRequest {
+    sync_token: Option<PaginationToken>,
+    cursor_token: Option<PaginationToken>,
+    items: Vec<MinimalItem>,
+
+    #[serde(default)]
+    limit: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SyncResponse {
     retrieved_items: Vec<MinimalItem>,
     saved_items: Vec<MinimalItem>,
     unsaved: Vec<MinimalItem>,
@@ -36,4 +46,20 @@ pub struct MinimalItem {
     pub created_at: ZuluTimestamp,
     #[serde(default)] // Will deserialize into current_time if none given; i.e. item.touch
     pub updated_at: ZuluTimestamp,
+}
+
+use backend_core::models::Item;
+impl<'a> From<&'a Item> for MinimalItem {
+    fn from(item: &'a Item) -> Self {
+        MinimalItem {
+            uuid: item.uuid.clone(),
+            content: String::from_utf8(item.content.clone()).unwrap(),
+            content_type: item.content_type.clone(),
+            enc_item_key: item.enc_item_key.clone(),
+            auth_hash: Some(item.auth_hash.clone()),
+            deleted: item.deleted.clone(),
+            created_at: ZuluTimestamp::from_datetime(item.created_at.clone()),
+            updated_at: ZuluTimestamp::from_datetime(item.updated_at.clone()),
+        }
+    }
 }

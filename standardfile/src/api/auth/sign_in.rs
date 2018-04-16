@@ -1,45 +1,56 @@
 use bcrypt::{verify};
-use serde_json::Value;
-
-use gotham::state::State;
-use gotham::handler::HandlerFuture;
-use hyper::StatusCode;
+use actix_web::{HttpRequest, HttpMessage, StatusCode, AsyncResponder, Error};
+use futures::Future;
 
 use backend_core::models::{User};
 use api::{
     INVALID_EMAIL_OR_PW,
-    encode_error_msg,
-    with_json_body
+    FutureResultObj, ResultObj, ErrorCode,
+    return_err, return_ok,
 };
 use super::{
-    encode_user_jwt,
-    reqmap_to_existing_user,
+    JwtMsg, encode_user_jwt,
+    is_existing_user,
 };
 
-pub fn sign_in(state: State) -> Box<HandlerFuture> {
-    info!("Request <=");
-    with_json_body(state, |state: &State, potential_hashmap| {
-        let response = match potential_hashmap {
-            Err(_) => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_EMAIL_OR_PW),
-            Ok(ref hashmap) => {
-                match reqmap_to_existing_user(hashmap) {
-                    None => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_EMAIL_OR_PW),
-                    Some(user) => {
-                        // Do the registration
-                        match verify_password_from_params(hashmap, &user) {
-                            false => encode_error_msg(&state, StatusCode::Unauthorized, INVALID_EMAIL_OR_PW),
-                            true => encode_user_jwt(&state, &user),
-                        }
-                    }
-                }
-            }
-        };
-        info!("Response => {:?}", response);
-        response
-    })
-}
-fn verify_password_from_params(hashmap: &Value, user: &User) -> bool {
-    let password = hashmap.get(&"password".to_string()).unwrap();
-    verify(&password.as_str().unwrap(), &user.encrypted_password.as_str()).unwrap()
+#[derive(Debug, Serialize, Deserialize)]
+struct SignInRequest {
+    email: String,
+    password: String,
 }
 
+// ERROR CODES
+const INVALID_PARAMS: ErrorCode = ErrorCode(StatusCode::UNAUTHORIZED, INVALID_EMAIL_OR_PW);
+
+pub fn sign_in(req: HttpRequest) -> FutureResultObj<JwtMsg> {
+    req.json()
+        .from_err()
+        .then(|res : Result<SignInRequest, Error>| match res {
+            Err(e)   => {
+                error!("Error: {}", e);
+                Ok(return_err(INVALID_PARAMS))
+            },
+            Ok(info) => Ok(do_sign_in_if_existing(info))
+        })
+        .responder()
+}
+fn do_sign_in_if_existing(info: SignInRequest) -> ResultObj<JwtMsg> {
+    if let Some(user) = is_existing_user(&info.email) {
+        do_sign_in(&user, info)
+    } else {
+        info!("[User: {}], [Result: invalid_params]", &info.email);
+        return_err(INVALID_PARAMS)
+    }
+}
+fn do_sign_in(user: &User, info: SignInRequest) -> ResultObj<JwtMsg> {
+    match verify(&info.password.as_str(), &user.encrypted_password.as_str()) {
+        Ok(true) => {
+            info!("[User: {}], [Result: success]", &info.email);
+            return_ok(encode_user_jwt(user))
+        },
+        _        => {
+            info!("[User: {}], [Result: invalid_pw]", &info.email);
+            return_err(INVALID_PARAMS)
+        }
+    }
+}

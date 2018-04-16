@@ -1,5 +1,7 @@
 extern crate standardfile;
-extern crate gotham;
+extern crate actix_web;
+
+use actix_web::{server};
 
 use standardfile::env;
 use standardfile::service;
@@ -14,5 +16,7 @@ fn main() {
     let _db = db::get_connection().expect("Failed to get connection!");
 
     println!("Starting at: {:?}",addr);
-    gotham::start(addr,service::router());
+    server::HttpServer::new(service::app)
+        .bind(addr).expect("Unable to bind to port!")
+        .run()
 }
