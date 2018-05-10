@@ -1,56 +1,37 @@
+use actix_web::{HttpResponse, ResponseError, Json, State, Either, AsyncResponder, FutureResponse};
 use bcrypt::{verify};
-use actix_web::{HttpRequest, HttpMessage, StatusCode, AsyncResponder, Error};
 use futures::Future;
 
-use backend_core::models::{User};
-use api::{
-    INVALID_EMAIL_OR_PW,
-    FutureResultObj, ResultObj, ErrorCode,
-    return_err, return_ok,
-};
-use super::{
-    JwtMsg, encode_user_jwt,
-    is_existing_user,
-};
+use db::FindUserByEmail;
+use api::{ServiceState, errors::SFError};
+use super::{encode_user_jwt};
 
 #[derive(Debug, Serialize, Deserialize)]
-struct SignInRequest {
-    email: String,
-    password: String,
+pub struct SignInRequest {
+    email: Option<String>,
+    password: Option<String>,
 }
 
-// ERROR CODES
-const INVALID_PARAMS: ErrorCode = ErrorCode(StatusCode::UNAUTHORIZED, INVALID_EMAIL_OR_PW);
-
-pub fn sign_in(req: HttpRequest) -> FutureResultObj<JwtMsg> {
-    req.json()
-        .from_err()
-        .then(|res : Result<SignInRequest, Error>| match res {
-            Err(e)   => {
-                error!("Error: {}", e);
-                Ok(return_err(INVALID_PARAMS))
-            },
-            Ok(info) => Ok(do_sign_in_if_existing(info))
-        })
-        .responder()
-}
-fn do_sign_in_if_existing(info: SignInRequest) -> ResultObj<JwtMsg> {
-    if let Some(user) = is_existing_user(&info.email) {
-        do_sign_in(&user, info)
-    } else {
-        info!("[User: {}], [Result: invalid_params]", &info.email);
-        return_err(INVALID_PARAMS)
-    }
-}
-fn do_sign_in(user: &User, info: SignInRequest) -> ResultObj<JwtMsg> {
-    match verify(&info.password.as_str(), &user.encrypted_password.as_str()) {
-        Ok(true) => {
-            info!("[User: {}], [Result: success]", &info.email);
-            return_ok(encode_user_jwt(user))
-        },
-        _        => {
-            info!("[User: {}], [Result: invalid_pw]", &info.email);
-            return_err(INVALID_PARAMS)
-        }
+pub fn sign_in(req: Json<SignInRequest>, state: State<ServiceState>) -> Either<FutureResponse<HttpResponse>, HttpResponse>  {
+    match (req.email.clone(), req.password.clone()) {
+        (None, _) => Either::B(SFError::InvalidEmailOrPassword.error_response()),
+        (_, None) => Either::B(SFError::InvalidEmailOrPassword.error_response()),
+        (Some(email), Some(password)) =>
+            Either::A(
+                state.db
+                    .send(FindUserByEmail { email })
+                    .from_err()
+                    .and_then(move |res| match res {
+                        Err(_) => Ok(SFError::InvalidEmailOrPassword.error_response()),
+                        Ok(result) => match result {
+                            None => Ok(SFError::InvalidEmailOrPassword.error_response()),
+                            Some(user) =>
+                                match verify(password.as_str(), user.encrypted_password.as_str()) {
+                                    Ok(true) => Ok(HttpResponse::Ok().json(encode_user_jwt(&user))),
+                                    _ => Ok(SFError::InvalidEmailOrPassword.error_response())
+                                }
+                        }
+                    })
+                    .responder())
     }
 }

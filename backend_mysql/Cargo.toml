@@ -1,6 +1,6 @@
 [package]
 name = "backend_mysql"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Alexander Dean <dstar@slackless.com>"]
 description = "A backend for the rust standardfile server."
 readme = "README.md"
@@ -9,6 +9,9 @@ keywords = ["notes","server","standardfile","self","hosted"]
 workspace = ".."
 
 [dependencies]
-backend_core = { path = "../backend_core", version = "0.1" }
+actix = "0.5"
+r2d2 = "0.8"
+r2d2-diesel = "1.0"
+backend_core = { path = "../backend_core", version = "0.2" }
 chrono = { version = "0.4", features = ["serde", "rustc-serialize"] }
 diesel = { version = "1.1", features = ["mysql", "chrono", "extras"] }

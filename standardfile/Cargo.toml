@@ -26,15 +26,16 @@ env_logger = "0.5"
 cfg-if = "0.1.2"
 
 actix = "0.5"
-actix-web = "0.4"
+actix-web = "0.5"
+failure = "0.1"
+failure_derive = "0.1"
 futures = "0.1"
-#mime = "0.3"
-#hyper = "0.11"
-#futures = "0.1" # Should upgrade soon
+r2d2 = "0.8"
 
-backend_core = { path = "../backend_core", version = "0.1" }
-backend_sqlite = { path = "../backend_sqlite", version = "0.1", optional = true }
-backend_mysql = { path = "../backend_mysql", version = "0.1", optional = true }
+
+backend_core = { path = "../backend_core" }
+backend_sqlite = { path = "../backend_sqlite", optional = true }
+backend_mysql = { path = "../backend_mysql",  optional = true }
 
 [features]
 default = ["sqlite"]

@@ -5,6 +5,10 @@ extern crate clap;
 extern crate cfg_if;
 
 #[macro_use]
+extern crate failure_derive;
+extern crate failure;
+
+#[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 extern crate serde;
@@ -13,9 +17,10 @@ extern crate serde;
 extern crate log;
 extern crate env_logger;
 
+extern crate actix;
 extern crate actix_web;
 extern crate futures;
-
+extern crate r2d2;
 extern crate base64;
 extern crate bcrypt;
 extern crate chrono;

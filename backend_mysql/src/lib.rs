@@ -1,12 +1,18 @@
+extern crate actix;
 extern crate chrono;
 extern crate diesel;
+extern crate r2d2;
+extern crate r2d2_diesel;
 extern crate backend_core;
 
 use std::env;
-use chrono::NaiveDateTime;
+use actix::prelude::*;
 use diesel::prelude::*;
-use backend_core::schema::{users,items};
-use backend_core::{User,Item,StandardFileStorage};
+use r2d2::{Pool};
+use r2d2_diesel::ConnectionManager;
+
+use backend_core::*;
+use backend_core::schema::{self,users};
 
 const DATABASE_HOST: &'static str = "DB_HOST";
 const DATABASE_PORT: &'static str = "DB_PORT";
@@ -30,92 +36,126 @@ fn build_db_uri() -> String {
     format!("mysql://{}:{}@{}:{}/{}", username,password,host,port,db_name)
 }
 
-pub fn get_connection() -> Result<Box<StandardFileStorage>,ConnectionError> {
-    let db_uri = build_db_uri();
-    let conn = diesel::MysqlConnection::establish(&db_uri.as_str())?;
-    Ok(Box::new(DbConnection { conn }))
+pub struct DBConnection {
+    pool: Pool<ConnectionManager<MysqlConnection>>,
 }
 
-struct DbConnection {
-    conn: MysqlConnection,
+impl Actor for DBConnection {
+    type Context = SyncContext<Self>;
 }
 
-impl StandardFileStorage for DbConnection {
-    fn add_user(self: &Self, user: &User) -> () {
-        diesel::insert_into(users::table)
-            .values(user)
-            .execute(&self.conn)
-            .expect("Error inserting new user");
+impl StandardFileStorage for DBConnection {
+    type Manager = ConnectionManager<MysqlConnection>;
+
+    fn new_manager() -> Self::Manager {
+        ConnectionManager::<MysqlConnection>::new(build_db_uri())
     }
-    fn update_user(self: &Self, user: User) -> () {
-        use backend_core::schema::users::dsl::*;
-        diesel::update(users.filter(email.eq(&user.email)))
-            .set((
-                encrypted_password.eq(&user.encrypted_password),
-                updated_at.eq(&user.updated_at),
-                pw_func.eq(&user.pw_func),
-                pw_alg.eq(&user.pw_alg),
-                pw_cost.eq(&user.pw_cost),
-                pw_key_size.eq(&user.pw_key_size),
-                pw_nonce.eq(&user.pw_nonce),
-                pw_salt.eq(&user.pw_salt),
-                version.eq(&user.version)
-            ))
-            .execute(&self.conn)
-            .expect("Error in updating user");
+
+    fn new(pool : Pool<Self::Manager>) -> DBConnection {
+        DBConnection { pool }
     }
-    fn add_or_update_item(self: &Self, item: Item) -> Result<Item, Item> {
-        match diesel::replace_into(items::table)
-            .values(&item)
-            .execute(&self.conn) {
-            Err(_) => Err(item),
-            Ok(_) => Ok(item)
+}
+
+impl Handler<AddUser> for DBConnection {
+    type Result = StandardFileResult<()>;
+
+    fn handle(&mut self, msg: AddUser, _ctx: &mut Self::Context) -> Self::Result {
+        let conn : &MysqlConnection = &self.pool.get().expect("Unable to get connection from pool");
+        match diesel::insert_into(users::table)
+            .values(&msg.user)
+            .execute(conn) {
+            Err(_) => Err(DBError::QueryError),
+            Ok(_) => Ok(())
         }
     }
+}
 
-    fn find_user_by_email(self: &Self, user_email: &String) -> Option<User> {
+impl Handler<UpdateUser> for DBConnection {
+    type Result = StandardFileResult<User>;
+
+    fn handle(&mut self, msg: UpdateUser, _ctx: &mut Self::Context) -> Self::Result {
+        use backend_core::schema::users::dsl::*;
+        let user = msg.user;
+        let conn : &MysqlConnection = &self.pool.get().expect("Unable to get connection from pool");
+        match diesel::update(users.filter(uuid.eq(&msg.uuid)))
+            .set(&user)
+            .get_result::<User>(conn) {
+            Err(_) => Err(DBError::QueryError),
+            Ok(user) => Ok(user),
+        }
+    }
+}
+
+impl Handler<FindUserByEmail> for DBConnection {
+    type Result = StandardFileResult<Option<User>>;
+
+    fn handle(&mut self, msg: FindUserByEmail, _ctx: &mut Self::Context) -> Self::Result {
         use backend_core::schema::users::dsl::{users, email};
-        users.filter(email.eq(user_email))
+        let user_email = msg.email;
+        let conn : &MysqlConnection = &self.pool.get().expect("Unable to get connection from pool");
+        let res = users.filter(email.eq(user_email))
             .limit(1)
-            .get_result::<User>(&self.conn)
+            .get_result::<User>(conn)
             .optional()
-            .unwrap()
+            .unwrap();
+        Ok(res)
     }
-    fn find_user_by_uuid(self: &Self, user_uuid: &String) -> Option<User> {
-        use backend_core::schema::users::dsl::{users, uuid};
-        users.filter(uuid.eq(user_uuid))
-            .limit(1)
-            .get_result::<User>(&self.conn)
-            .optional()
-            .unwrap()
-    }
+}
 
-    fn get_items(self: &Self, users_uuid: &String, limit: i64) -> Option<Vec<Item>> {
-        use backend_core::schema::items::dsl::{items, user_uuid, updated_at};
-        items.filter(user_uuid.eq(users_uuid))
-            .limit(limit)
-            .order(updated_at)
-            .load::<Item>(&self.conn)
+impl Handler<FindUserByUUID> for DBConnection {
+    type Result = StandardFileResult<Option<User>>;
+
+    fn handle(&mut self, msg: FindUserByUUID, _ctx: &mut Self::Context) -> Self::Result {
+        use backend_core::schema::users::dsl::{users, uuid};
+        let user_uuid = msg.uuid;
+        let conn : &MysqlConnection = &self.pool.get().expect("Unable to get connection from pool");
+        let res = users.filter(uuid.eq(user_uuid))
+            .limit(1)
+            .get_result::<User>(conn)
             .optional()
-            .unwrap()
+            .unwrap();
+        Ok(res)
     }
-    fn get_items_older_than(self: &Self, datetime: &NaiveDateTime, users_uuid: &String, limit: i64) -> Option<Vec<Item>> {
+}
+
+impl Handler<GetAndUpdateItems> for DBConnection {
+    type Result = StandardFileResult<Option<Vec<Item>>>;
+
+    fn handle(&mut self, msg: GetAndUpdateItems, _ctx: &mut Self::Context) -> Self::Result {
         use backend_core::schema::items::dsl::{items, user_uuid, updated_at};
-        items.filter(user_uuid.eq(users_uuid).and(updated_at.gt(datetime)))
-            .limit(limit)
-            .order(updated_at)
-            .load::<Item>(&self.conn)
-            .optional()
-            .unwrap()
-    }
-    fn get_items_older_or_equal_to(self: &Self, datetime: &NaiveDateTime, users_uuid: &String, limit: i64) -> Option<Vec<Item>> {
-        use backend_core::schema::items::dsl::{items, user_uuid, updated_at};
-        items.filter(user_uuid.eq(users_uuid).and(updated_at.ge(datetime)))
-            .limit(limit)
-            .order(updated_at)
-            .load::<Item>(&self.conn)
-            .optional()
-            .unwrap()
+        let users_uuid = msg.user_uuid;
+        let limit = msg.limit;
+        let conn : &MysqlConnection = &self.pool.get().expect("Unable to get connection from pool");
+        for item in msg.items.iter() {
+            let _res = diesel::replace_into(schema::items::table)
+                .values(item)
+                .execute(conn);
+        }
+        let res = match msg.datetime {
+            None =>
+                    items.filter(user_uuid.eq(users_uuid))
+                         .limit(limit)
+                         .order(updated_at)
+                         .load::<Item>(conn)
+                         .optional()
+                         .unwrap(),
+            Some(datetime) => if msg.is_inclusive {
+                    items.filter(user_uuid.eq(users_uuid).and(updated_at.ge(datetime)))
+                         .limit(limit)
+                         .order(updated_at)
+                         .load::<Item>(conn)
+                         .optional()
+                         .unwrap()
+            } else {
+                    items.filter(user_uuid.eq(users_uuid).and(updated_at.gt(datetime)))
+                         .limit(limit)
+                         .order(updated_at)
+                         .load::<Item>(conn)
+                         .optional()
+                         .unwrap()
+            }
+        };
+        Ok(res)
     }
 }
 

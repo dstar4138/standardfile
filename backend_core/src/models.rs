@@ -1,7 +1,7 @@
 use schema::{users,items};
 use chrono::prelude::*;
 
-#[derive(Queryable,Insertable)]
+#[derive(Queryable,Insertable,Debug,Clone)]
 #[table_name = "users"]
 pub struct User {
     pub uuid: String,
@@ -18,7 +18,37 @@ pub struct User {
     pub version: String,
 }
 
-#[derive(Queryable,Insertable)]
+#[derive(AsChangeset)]
+#[table_name = "users"]
+pub struct UserUpdateChange {
+    pub updated_at: NaiveDateTime,
+
+    pub pw_func: Option<String>,
+    pub pw_alg: Option<String>,
+    pub pw_cost: Option<i32>,
+    pub pw_key_size: Option<i32>,
+    pub pw_nonce: Option<String>,
+    pub encrypted_password: Option<String>,
+    pub pw_salt: Option<String>,
+    pub version: Option<String>,
+}
+impl Default for UserUpdateChange {
+    fn default() -> Self {
+        UserUpdateChange {
+            updated_at: Utc::now().naive_utc(),
+            pw_func: None,
+            pw_alg: None,
+            pw_cost: None,
+            pw_key_size: None,
+            pw_nonce: None,
+            encrypted_password: None,
+            pw_salt: None,
+            version: None,
+        }
+    }
+}
+
+#[derive(Queryable,Insertable,Debug,Clone)]
 #[table_name = "items"]
 pub struct Item {
     pub uuid: String,

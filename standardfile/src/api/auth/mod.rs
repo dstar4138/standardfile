@@ -12,8 +12,9 @@ pub use self::change_pw::change_pw;
 pub use self::update::update;
 
 use tokens;
+use super::ServiceState;
 use backend_core::models::{User};
-use db::{get_connection};
+use db::FindUserByEmail;
 
 #[derive(Serialize, Deserialize)]
 struct MinimalUser {
@@ -41,14 +42,5 @@ fn to_valid_email(potential_email: &String) -> Option<String> {
         Some(potential_email.clone())
     } else {
         None
-    }
-}
-fn is_existing_user(email: &String) -> Option<User> {
-    match to_valid_email(email) {
-        None => None,
-        Some(email) => {
-            let conn = get_connection().expect("Unable to get db conn.");
-            conn.find_user_by_email(&email)
-        }
     }
 }

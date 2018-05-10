@@ -1,8 +1,13 @@
-pub use backend_core::StandardFileStorage;
+use actix::prelude::*;
+pub use backend_core::*;
+pub const POOL_SIZE: usize = 5;
 cfg_if! {
     if #[cfg(feature = "mysql")] {
-        pub use backend_mysql::{get_connection};
+        use backend_mysql::*;
     } else { // We default to using sqlite.
-        pub use backend_sqlite::{get_connection};
+        use backend_sqlite::*;
     }
 }
+
+pub type StandardFileStorageDB = DBConnection; // assumes creation and import from backend.
+pub type DBAddr = Addr<Syn, StandardFileStorageDB>;

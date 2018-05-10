@@ -1,4 +1,5 @@
 mod sync;
+//mod sync_transaction;
 mod timestamp;
 mod pagination;
 
@@ -16,7 +17,7 @@ pub trait IsDateTime {
 }
 
 #[derive(Serialize, Deserialize)]
-struct SyncRequest {
+pub struct SyncRequest {
     sync_token: Option<PaginationToken>,
     cursor_token: Option<PaginationToken>,
     items: Vec<MinimalItem>,
@@ -61,5 +62,13 @@ impl<'a> From<&'a Item> for MinimalItem {
             created_at: ZuluTimestamp::from_datetime(item.created_at.clone()),
             updated_at: ZuluTimestamp::from_datetime(item.updated_at.clone()),
         }
+    }
+}
+
+fn minify_items(optional_items: Option<Vec<Item>>) -> Vec<MinimalItem> {
+    match optional_items {
+        None => vec![],
+        Some(items) =>
+            items.iter().map(|&ref item: &Item| MinimalItem::from(item)).collect()
     }
 }

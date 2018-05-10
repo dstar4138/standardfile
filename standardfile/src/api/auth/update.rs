@@ -1,23 +1,20 @@
-use db::{get_connection, StandardFileStorage};
-use backend_core::models::{User};
-use pwdetails::{
-    PasswordDetails,
-    HasPasswordDetails,
-    defaults_with_override
+use db::{UpdateUser, UserUpdateChange};
+use bcrypt::{DEFAULT_COST, hash};
+use pwdetails::{PasswordDetails};
+use actix_web::{
+    HttpRequest, HttpResponse, HttpMessage,
+    FutureResponse, AsyncResponder,
+    Json, State, Either, ResponseError,
 };
-use util;
-
-use actix_web::{HttpRequest, HttpMessage, StatusCode, AsyncResponder, Error};
-use futures::{Future, IntoFuture};
+use actix_web::middleware::identity::RequestIdentity;
+use futures::{Future};
 
 use api::{
-    INVALID_CREDENTIALS,
-    get_current_user_uuid,
-    return_err, return_ok, ErrorCode,
-    FutureResultObj, ResultObj,
+    errors::SFError,
+    ServiceState
 };
 use super::{
-    encode_user_jwt, JwtMsg,
+    encode_user_jwt, JwtMsg
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,50 +23,32 @@ pub struct UpdateRequest {
     pw_info: PasswordDetails
 }
 
-const UPDATE_ERROR: ErrorCode = ErrorCode(StatusCode::UNAUTHORIZED, INVALID_CREDENTIALS);
-
-pub fn update(req: HttpRequest) -> FutureResultObj<JwtMsg> {
-    let conn = get_connection().expect("Unable to get db connection");
-    let user_uuid = match get_current_user_uuid(&req, &conn) {
-        Err(err_msg) => return Box::new(Ok(err_msg).into_future()),
-        Ok(user_uuid) => user_uuid
+pub fn update(req: HttpRequest<ServiceState>, info: Json<UpdateRequest>, state: State<ServiceState>) -> Either<FutureResponse<HttpResponse>, HttpResponse> {
+    let user_uuid = match req.identity() {
+        Some(user_uuid) => user_uuid.to_string(),
+        None => return Either::B(SFError::InvalidCredentials.error_response()),
     };
-    req.json()
-        .from_err()
-        .then(move |res : Result<UpdateRequest, Error>| match res {
-            Err(e) => {
-                error!("Error: {}",e);
-                Ok(return_err(UPDATE_ERROR))
-            },
-            Ok(request) => {
-                let conn = get_connection().expect("Unable to get db connection");
-                Ok(do_update(request, &user_uuid, &conn))
-            }
-        })
-        .responder()
+    let user_change = UserUpdateChange {
+        pw_func: info.pw_info.pw_func.clone(),
+        pw_alg: info.pw_info.pw_alg.clone(),
+        pw_cost: info.pw_info.pw_cost.clone(),
+        pw_key_size: info.pw_info.pw_key_size.clone(),
+        pw_nonce: info.pw_info.pw_nonce.clone(),
+        pw_salt: info.pw_info.pw_salt.clone(),
+        version: info.pw_info.version.clone(),
+        ..UserUpdateChange::default()
+    };
+    Either::A(
+        state.db.send(
+            UpdateUser {
+                uuid: user_uuid.clone(),
+                user: user_change
+            })
+            .from_err()
+            .and_then(|res| match res {
+                Err(_) => Ok(SFError::InvalidCredentials.error_response()),
+                Ok(new_user) => Ok(HttpResponse::Ok().json(encode_user_jwt(&new_user)))
+            })
+            .responder())
 }
 
-pub fn do_update(request: UpdateRequest, user_uuid: &String, conn: &Box<StandardFileStorage>) -> ResultObj<JwtMsg> {
-    if let Some(user) = conn.find_user_by_uuid(user_uuid) {
-        info!("[UserUuid: {}], [Result: success]", user_uuid);
-        let current_time = util::current_time();
-        let pw_params = defaults_with_override(&request.pw_info, &user.to_password_details());
-        let new_user = User {
-            updated_at: current_time,
-            pw_func: pw_params.get_pw_func(),
-            pw_alg: pw_params.get_pw_alg(),
-            pw_cost: pw_params.get_pw_cost(),
-            pw_key_size: pw_params.get_pw_key_size(),
-            pw_nonce: pw_params.get_pw_nonce(),
-            pw_salt: pw_params.get_pw_salt(),
-            version: pw_params.get_version(),
-            ..user
-        };
-        let ret = encode_user_jwt(&new_user);
-        conn.update_user(new_user);
-        return_ok(ret)
-    } else {
-        info!("[UserUuid: {}], [Request: {:?}, [Result: could_not_find_user]", user_uuid, request);
-        return_err(UPDATE_ERROR)
-    }
-}
