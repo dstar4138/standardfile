@@ -1,6 +1,6 @@
 [package]
 name = "backend_core"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Alexander Dean <dstar@slackless.com>"]
 description = "The backend definition for the rust standardfile server."
 readme = "README.md"

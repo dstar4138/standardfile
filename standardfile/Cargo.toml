@@ -1,6 +1,6 @@
 [package]
 name = "standardfile"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Alexander Dean <dstar@slackless.com>"]
 description = "A Rust StandardFile server implementation."
 readme = "README.md"
