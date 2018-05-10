@@ -16,9 +16,6 @@ pub enum SFError {
     #[fail(display = "Please provide email via GET parameter.")]
     MissingEmail,
 
-    #[fail(display = "Unable to register.")]
-    UnableToRegister,
-
     #[fail(display = "This email is already registered.")]
     AlreadyRegistered,
 
@@ -36,7 +33,6 @@ impl error::ResponseError for SFError {
     fn error_response(&self) -> HttpResponse {
         match *self {
             SFError::MissingEmail => to_err_response(StatusCode::BAD_REQUEST, self),
-            SFError::UnableToRegister => to_err_response(StatusCode::UNAUTHORIZED, self),
             SFError::AlreadyRegistered => to_err_response(StatusCode::UNAUTHORIZED, self),
             SFError::InvalidCredentials => to_err_response(StatusCode::UNAUTHORIZED, self),
             SFError::InvalidEmailOrPassword => to_err_response(StatusCode::UNAUTHORIZED, self),
@@ -47,7 +43,7 @@ impl error::ResponseError for SFError {
 }
 
 impl From<MailboxError> for SFError {
-    fn from(error: MailboxError) -> Self {
+    fn from(_error: MailboxError) -> Self {
         SFError::InternalFailure // Doesnt matter, just throw a 500 cleanly.
     }
 }

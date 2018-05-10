@@ -12,9 +12,7 @@ pub use self::change_pw::change_pw;
 pub use self::update::update;
 
 use tokens;
-use super::ServiceState;
 use backend_core::models::{User};
-use db::FindUserByEmail;
 
 #[derive(Serialize, Deserialize)]
 struct MinimalUser {

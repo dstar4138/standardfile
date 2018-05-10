@@ -2,7 +2,7 @@ use db::{UpdateUser, UserUpdateChange};
 use bcrypt::{DEFAULT_COST, hash};
 use pwdetails::{PasswordDetails};
 use actix_web::{
-    HttpRequest, HttpResponse, HttpMessage,
+    HttpRequest, HttpResponse,
     FutureResponse, AsyncResponder,
     Json, State, Either, ResponseError,
 };
@@ -14,7 +14,7 @@ use api::{
     ServiceState
 };
 use super::{
-    encode_user_jwt, JwtMsg
+    encode_user_jwt,
 };
 
 #[derive(Debug, Serialize, Deserialize)]

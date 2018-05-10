@@ -1,9 +1,9 @@
-use actix_web::{App, HttpRequest, HttpResponse, HttpMessage, Result, http};
+use actix_web::{HttpRequest, HttpResponse, HttpMessage, Result, http};
 use actix_web::error::Error;
-use actix_web::middleware::{Middleware, Started, Response};
+use actix_web::middleware::{Response};
 use actix_web::middleware::identity::{IdentityPolicy, Identity};
 use futures::Future;
-use futures::future::{FutureResult, ok as FutOk};
+use futures::future::{ok as FutOk};
 
 use super::{ServiceState};
 use tokens;
@@ -30,7 +30,7 @@ impl Identity for TokenIdentity {
         self.uuid = None;
     }
 
-    fn write(&mut self, mut resp: HttpResponse) -> Result<Response> {
+    fn write(&mut self, resp: HttpResponse) -> Result<Response> {
         Ok(Response::Done(resp))
     }
 }

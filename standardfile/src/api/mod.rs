@@ -3,17 +3,12 @@ pub mod items;
 pub mod identity;
 mod errors;
 
-use serde::Serialize;
-use futures::prelude::*;
-use actix::prelude::*;
 use actix_web::{
-    HttpRequest, HttpMessage, AsyncResponder,
-    http, HttpResponse, Error, Either,
-    FutureResponse, ResponseError,
+    HttpRequest, HttpMessage,
+    http,
 };
 
-use tokens;
-use db::{DBAddr,FindUserByUUID};
+use db::{DBAddr};
 
 pub struct ServiceState {
     pub db: DBAddr

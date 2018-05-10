@@ -1,5 +1,9 @@
 use bcrypt::{DEFAULT_COST,hash};
-use actix_web::{HttpRequest, HttpMessage, FutureResponse, HttpResponse, AsyncResponder, ResponseError, Error, Json, State, Either};
+use actix_web::{
+    FutureResponse, HttpResponse, AsyncResponder,
+    ResponseError,
+    Json, State, Either
+};
 
 use db::AddUser;
 use users;

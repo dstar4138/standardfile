@@ -77,9 +77,14 @@ impl Handler<UpdateUser> for DBConnection {
         use backend_core::schema::users::dsl::*;
         let user = msg.user;
         let conn : &MysqlConnection = &self.pool.get().expect("Unable to get connection from pool");
-        match diesel::update(users.filter(uuid.eq(&msg.uuid)))
+        let _res = diesel::update(users.filter(uuid.eq(&msg.uuid)))
             .set(&user)
-            .get_result::<User>(conn) {
+            .execute(conn)
+            .expect("Unable to update user");
+        match users.filter(uuid.eq(&msg.uuid))
+            .limit(1)
+            .get_result::<User>(conn)
+        {
             Err(_) => Err(DBError::QueryError),
             Ok(user) => Ok(user),
         }

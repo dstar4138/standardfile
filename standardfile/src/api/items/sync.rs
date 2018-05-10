@@ -1,5 +1,5 @@
 use actix_web::{
-    HttpRequest, HttpMessage, HttpResponse,
+    HttpRequest, HttpResponse,
     FutureResponse, AsyncResponder,
     Json, State, Either, ResponseError,
 };
@@ -24,11 +24,6 @@ use backend_core::models::Item;
 static DEFAULT_LIMIT : i64 = 100_000;
 
 use db::StandardFileResult;
-
-pub struct SyncGetResult {
-    pub items: Vec<MinimalItem>,
-    pub cursor_token: Option<PaginationToken>,
-}
 
 pub fn sync(
     req: HttpRequest<ServiceState>,
@@ -62,7 +57,7 @@ pub fn sync(
                 });
 
                 // add 1 microsecond to avoid returning same object in subsequent sync, like ruby code.
-                let last_updated = current_time() + Duration::milliseconds(1);
+                let last_updated = current_time() + Duration::microseconds(1);
                 let sync_token = PaginationToken::from_datetime(last_updated);
 
                 let result = SyncResponse {

@@ -1,4 +1,4 @@
-FROM rust:1.24
+FROM rust:1.25
 MAINTAINER <dstar@slackless.com>
 RUN cargo install diesel_cli
 
