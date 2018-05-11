@@ -1,5 +1,6 @@
 use chrono::{NaiveDateTime};
-use super::IsDateTime;
+
+use api::timestamp::ZuluTimestamp;
 
 #[derive(Debug,Clone,Copy,PartialEq,Eq)]
 pub struct PaginationToken {
@@ -7,15 +8,27 @@ pub struct PaginationToken {
     datetime: NaiveDateTime,
 }
 
-impl IsDateTime for PaginationToken {
-    fn to_datetime(&self) -> NaiveDateTime {
-        self.datetime
-    }
-    fn from_datetime(datetime: NaiveDateTime) -> PaginationToken {
+impl<'a> From<&'a NaiveDateTime> for PaginationToken {
+    fn from(datetime: &'a NaiveDateTime) -> Self {
         PaginationToken {
             version: 2,
-            datetime
+            datetime: datetime.clone()
         }
+    }
+}
+
+impl<'a> From<&'a ZuluTimestamp> for PaginationToken {
+    fn from(timestamp: &'a ZuluTimestamp) -> Self {
+        PaginationToken {
+            version: 2,
+            datetime: NaiveDateTime::from(timestamp)
+        }
+    }
+}
+
+impl<'a> From<&'a PaginationToken> for NaiveDateTime {
+    fn from(token: &'a PaginationToken) -> Self {
+        token.datetime.clone()
     }
 }
 

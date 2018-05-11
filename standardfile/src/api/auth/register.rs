@@ -1,22 +1,20 @@
-use bcrypt::{DEFAULT_COST,hash};
 use actix_web::{
     FutureResponse, HttpResponse, AsyncResponder,
     ResponseError,
     Json, State, Either
 };
-
-use db::AddUser;
-use users;
+use bcrypt::{DEFAULT_COST,hash};
 use futures::Future;
-use pwdetails::{PasswordDetails, defaults};
+
 use api::{
     ServiceState,
-    errors::SFError,
-};
-use super::{
     to_valid_email,
-    encode_user_jwt
+    errors::SFError,
+    models::JwtMsg,
 };
+use db::AddUser;
+use pwdetails::{PasswordDetails, defaults};
+use users;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegistrationInfo {
@@ -44,13 +42,14 @@ pub fn register(info: Json<RegistrationInfo>, state: State<ServiceState>) ->
     let new_user = users::create_new(email, encrypted_password, pwd);
 
     // Store/Return it.
-    Either::A(state.db.send(
-        AddUser {
-            user: new_user.clone()
-        }).from_err()
+    Either::A(
+        state.db
+        .send(AddUser { user: new_user.clone() })
+        .from_err()
         .and_then(move |res| match res {
             Err(_) => Ok(SFError::AlreadyRegistered.error_response()),
-            Ok(_) => Ok(HttpResponse::Ok().json(encode_user_jwt(&new_user)))
+            Ok(_) => Ok(HttpResponse::Ok().json(JwtMsg::from(&new_user)))
         })
-        .responder())
+        .responder()
+    )
 }

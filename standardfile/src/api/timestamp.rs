@@ -1,5 +1,4 @@
 use chrono::NaiveDateTime;
-use super::IsDateTime;
 use util::current_time;
 
 #[derive(Debug,Clone,Copy,PartialEq,Eq)]
@@ -7,14 +6,16 @@ pub struct ZuluTimestamp {
     datetime: NaiveDateTime,
 }
 
-impl IsDateTime for ZuluTimestamp {
-    fn to_datetime(&self) -> NaiveDateTime {
-        self.datetime
-    }
-    fn from_datetime(datetime: NaiveDateTime) -> ZuluTimestamp {
+impl<'a> From<&'a NaiveDateTime> for ZuluTimestamp {
+    fn from(datetime: &'a NaiveDateTime) -> Self {
         ZuluTimestamp {
-            datetime
+            datetime: datetime.clone()
         }
+    }
+}
+impl<'a> From<&'a ZuluTimestamp> for NaiveDateTime {
+    fn from(timestamp: &'a ZuluTimestamp) -> Self {
+        timestamp.datetime.clone()
     }
 }
 

@@ -1,21 +1,19 @@
-use db::{UpdateUser, UserUpdateChange};
-use bcrypt::{DEFAULT_COST, hash};
-use pwdetails::{PasswordDetails};
 use actix_web::{
     HttpRequest, HttpResponse,
     FutureResponse, AsyncResponder,
     Json, State, Either, ResponseError,
 };
 use actix_web::middleware::identity::RequestIdentity;
+use bcrypt::{DEFAULT_COST, hash};
 use futures::{Future};
 
 use api::{
     errors::SFError,
-    ServiceState
+    ServiceState,
+    models::JwtMsg,
 };
-use super::{
-    encode_user_jwt,
-};
+use pwdetails::{PasswordDetails};
+use db::{UpdateUser, UserUpdateChange};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChangePasswordRequest {
@@ -46,15 +44,11 @@ pub fn change_pw(req: HttpRequest<ServiceState>, info: Json<ChangePasswordReques
         ..UserUpdateChange::default()
     };
     Either::A(
-        state.db.send(
-            UpdateUser {
-                uuid: user_uuid.clone(),
-                user: user_change
-            })
+        state.db.send(UpdateUser { uuid: user_uuid.clone(), user: user_change })
             .from_err()
             .and_then(|res| match res {
                 Err(_) => Ok(SFError::InvalidCredentials.error_response()),
-                Ok(new_user) => Ok(HttpResponse::Ok().json(encode_user_jwt(&new_user)))
+                Ok(new_user) => Ok(HttpResponse::Ok().json(JwtMsg::from(&new_user)))
             })
             .responder())
 }

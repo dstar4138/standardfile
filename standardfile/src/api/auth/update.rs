@@ -1,20 +1,18 @@
-use db::{UpdateUser, UserUpdateChange};
-use pwdetails::{PasswordDetails};
 use actix_web::{
     HttpRequest, HttpResponse,
     FutureResponse, AsyncResponder,
     Json, State, Either, ResponseError,
 };
 use actix_web::middleware::identity::RequestIdentity;
-use futures::{Future};
+use futures::Future;
 
 use api::{
+    ServiceState,
     errors::SFError,
-    ServiceState
+    models::JwtMsg,
 };
-use super::{
-    encode_user_jwt,
-};
+use db::{UpdateUser, UserUpdateChange};
+use pwdetails::{PasswordDetails};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateRequest {
@@ -38,15 +36,11 @@ pub fn update(req: HttpRequest<ServiceState>, info: Json<UpdateRequest>, state: 
         ..UserUpdateChange::default()
     };
     Either::A(
-        state.db.send(
-            UpdateUser {
-                uuid: user_uuid.clone(),
-                user: user_change
-            })
+        state.db.send(UpdateUser { uuid: user_uuid.clone(), user: user_change })
             .from_err()
             .and_then(|res| match res {
                 Err(_) => Ok(SFError::InvalidCredentials.error_response()),
-                Ok(new_user) => Ok(HttpResponse::Ok().json(encode_user_jwt(&new_user)))
+                Ok(new_user) => Ok(HttpResponse::Ok().json(JwtMsg::from(&new_user)))
             })
             .responder())
 }
