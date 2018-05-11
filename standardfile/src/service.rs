@@ -1,5 +1,5 @@
 use api;
-use actix_web::{http, App, HttpMessage, HttpRequest};
+use actix_web::{http, App, HttpRequest};
 use actix_web::middleware::identity::{IdentityService};
 use actix_web::middleware::Logger;
 
@@ -22,8 +22,7 @@ pub fn app(state: api::ServiceState) -> App<api::ServiceState> {
 }
 
 static INDEX: &'static str = "For API, see https://standardfile.org";
-fn index(request: HttpRequest<api::ServiceState>) -> &'static str {
-    info!("Request came in on '/', {:?}", request.headers().get(http::header::AUTHORIZATION));
+fn index(_request: HttpRequest<api::ServiceState>) -> &'static str {
     INDEX
 }
 
