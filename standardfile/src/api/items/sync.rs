@@ -15,7 +15,6 @@ use util::{current_time};
 use super::{
     SyncRequest, SyncResponse, IsDateTime,
     pagination::PaginationToken,
-    //   sync_transaction::do_sync_transaction,
     minify_items, MinimalItem,
 };
 use db::GetAndUpdateItems;
@@ -56,8 +55,8 @@ pub fn sync(
                     PaginationToken::from_datetime(datetime)
                 });
 
-                // add 1 microsecond to avoid returning same object in subsequent sync, like ruby code.
-                let last_updated = current_time() + Duration::microseconds(1);
+                // add 1 second to avoid returning same object in subsequent sync, similar to ruby code.
+                let last_updated = current_time() + Duration::seconds(1);
                 let sync_token = PaginationToken::from_datetime(last_updated);
 
                 let result = SyncResponse {
